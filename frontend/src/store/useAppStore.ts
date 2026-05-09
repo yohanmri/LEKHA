@@ -25,6 +25,13 @@ export interface HeaderFooterFormat {
   italic: boolean;
 }
 
+export interface PageNumberConfig {
+  show: boolean;
+  position: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  color: string;
+  romanUntilPage: number;
+}
+
 export interface PageSize { name: PageSizeName; widthPx: number; heightPx: number; }
 
 // Page sizes at 96 DPI (1cm = 37.8px)
@@ -65,8 +72,8 @@ interface AppState {
   footerFormat: HeaderFooterFormat;
   setFooterFormat: (format: Partial<HeaderFooterFormat>) => void;
   
-  showPageNumbers: boolean;
-  setShowPageNumbers: (show: boolean) => void;
+  pageNumberConfig: PageNumberConfig;
+  setPageNumberConfig: (config: Partial<PageNumberConfig>) => void;
 
   // References
   references: Reference[];
@@ -174,12 +181,13 @@ export const useAppStore = create<AppState>((set) => ({
   activeEditorId: null,
   setActiveEditorId: (id) => set({ activeEditorId: id }),
 
-  headerFormat: { text: '', fontFamily: 'FMAbhaya', fontSize: '10', color: '#9CA3AF', align: 'center', bold: false, italic: false },
+  headerFormat: { text: '', fontFamily: 'FMAbhaya', fontSize: '10', color: '#000000', align: 'center', bold: false, italic: false },
   setHeaderFormat: (format) => set((state) => ({ headerFormat: { ...state.headerFormat, ...format } })),
-  footerFormat: { text: '', fontFamily: 'FMAbhaya', fontSize: '10', color: '#9CA3AF', align: 'left', bold: false, italic: false },
+  footerFormat: { text: '', fontFamily: 'FMAbhaya', fontSize: '10', color: '#000000', align: 'left', bold: false, italic: false },
   setFooterFormat: (format) => set((state) => ({ footerFormat: { ...state.footerFormat, ...format } })),
-  showPageNumbers: true,
-  setShowPageNumbers: (show) => set({ showPageNumbers: show }),
+  
+  pageNumberConfig: { show: true, position: 'bottom-right', color: '#000000', romanUntilPage: 0 },
+  setPageNumberConfig: (config) => set((state) => ({ pageNumberConfig: { ...state.pageNumberConfig, ...config } })),
 
   references: [],
   addReference: (text) => set((state) => ({ 

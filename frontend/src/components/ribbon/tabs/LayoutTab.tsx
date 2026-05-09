@@ -273,7 +273,19 @@ const HeaderFooterSettings: React.FC<{
         placeholder={`Add ${title.toLowerCase()} text...`} 
         className="w-full text-[12px] border border-gray-300 rounded px-2 py-1 outline-none focus:border-[#C9973A] bg-white mb-1"
       />
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 flex-wrap">
+        {/* Font Family */}
+        <select 
+          value={format.fontFamily}
+          onChange={e => setFormat({ fontFamily: e.target.value })}
+          className="text-[11px] border border-gray-300 rounded px-1 py-0.5 outline-none bg-white cursor-pointer max-w-[100px] truncate"
+        >
+          <option value="Inter">Inter</option>
+          <option value="Noto Sans Sinhala">Noto Sans Sinhala</option>
+          <option value="FMAbhaya">FMAbhaya</option>
+          <option value="FMMalithi">FMMalithi</option>
+        </select>
+
         {/* Font Size */}
         <select 
           value={format.fontSize}
@@ -304,6 +316,9 @@ const HeaderFooterSettings: React.FC<{
           className="w-5 h-5 p-0 border-none rounded cursor-pointer"
         />
       </div>
+      <button className="text-[10px] text-[#C9973A] hover:underline self-start mt-1 font-medium">
+        Advanced Formatting Options...
+      </button>
     </div>
   );
 };
@@ -363,17 +378,92 @@ const FooterSettingsBtn: React.FC = () => {
 };
 
 const PageNumberBtn: React.FC = () => {
-  const { showPageNumbers, setShowPageNumbers } = useAppStore();
+  const { pageNumberConfig, setPageNumberConfig } = useAppStore();
+  const { open, setOpen, openDropdown, ref, pos } = useDropdown();
 
   return (
-    <div className="relative h-full flex items-center px-1">
+    <div ref={ref} className="relative h-full flex items-center px-1">
       <button
-        onClick={() => setShowPageNumbers(!showPageNumbers)}
-        className={`flex flex-col items-center justify-center rounded px-2 py-0.5 transition-colors min-w-[56px] h-full gap-0 ${showPageNumbers ? 'bg-[#c9973a20] text-[#C9973A]' : 'hover:bg-[#f3f2f1] text-[#323130]'}`}
+        onClick={() => open ? setOpen(false) : openDropdown()}
+        className={`flex flex-col items-center justify-center rounded px-2 py-0.5 transition-colors min-w-[56px] h-full gap-0 ${open ? 'bg-[#edebe9]' : 'hover:bg-[#f3f2f1]'} text-[#323130]`}
       >
         <Hash size={20} strokeWidth={1.5} />
         <span className="text-[10px] mt-0.5 font-medium">Page No</span>
+        <ChevronDown size={8} className="text-gray-400" />
       </button>
+
+      {open && (
+        <div
+          className="fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] p-3 flex flex-col gap-3"
+          style={{ top: pos.top, left: pos.left, minWidth: 260 }}
+        >
+          <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+              Page Numbers
+            </span>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={pageNumberConfig.show}
+                onChange={e => setPageNumberConfig({ show: e.target.checked })}
+                className="accent-[#C9973A]"
+              />
+              <span className="text-[11px] text-gray-600 font-medium">Show</span>
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="flex flex-col gap-1 text-[11px] text-gray-600 font-medium">
+              Position
+              <select 
+                value={pageNumberConfig.position}
+                onChange={e => setPageNumberConfig({ position: e.target.value as any })}
+                className="border border-gray-300 rounded px-2 py-1 outline-none bg-white focus:border-[#C9973A]"
+              >
+                <option value="top-left">Top Left</option>
+                <option value="top-center">Top Center</option>
+                <option value="top-right">Top Right</option>
+                <option value="bottom-left">Bottom Left</option>
+                <option value="bottom-center">Bottom Center</option>
+                <option value="bottom-right">Bottom Right</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1 text-[11px] text-gray-600 font-medium">
+              Number Color
+              <input 
+                type="color" 
+                value={pageNumberConfig.color}
+                onChange={e => setPageNumberConfig({ color: e.target.value })}
+                className="w-full h-6 p-0 border-none rounded cursor-pointer"
+              />
+            </label>
+
+            <div className="border-t border-gray-100 pt-2 mt-1">
+              <label className="flex flex-col gap-1 text-[11px] text-gray-600 font-medium">
+                Use Roman Numerals Until Page:
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    min="0"
+                    value={pageNumberConfig.romanUntilPage}
+                    onChange={e => setPageNumberConfig({ romanUntilPage: parseInt(e.target.value) || 0 })}
+                    className="border border-gray-300 rounded px-2 py-1 outline-none focus:border-[#C9973A] w-16"
+                  />
+                  <span className="text-[10px] text-gray-400 font-normal italic">0 = Off</span>
+                </div>
+              </label>
+              <p className="text-[9px] text-gray-400 mt-1 leading-tight">
+                Pages up to this number will display as i, ii, iii. Subsequent pages will restart at 1, 2, 3.
+              </p>
+            </div>
+            
+            <button className="text-[10px] text-[#C9973A] hover:underline self-start mt-1 font-medium">
+              Advanced Numbering Options...
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

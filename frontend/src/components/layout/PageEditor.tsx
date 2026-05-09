@@ -27,13 +27,27 @@ interface PageEditorProps {
 
 let singlishBuffer = '';
 
+const toRoman = (num: number): string => {
+  if (num <= 0) return num.toString();
+  const roman = {
+    M: 1000, CM: 900, D: 500, CD: 400, C: 100, XC: 90, L: 50, XL: 40, X: 10, IX: 9, V: 5, IV: 4, I: 1
+  };
+  let str = '';
+  for (let i of Object.keys(roman) as (keyof typeof roman)[]) {
+    let q = Math.floor(num / roman[i]);
+    num -= q * roman[i];
+    str += i.repeat(q);
+  }
+  return str.toLowerCase();
+};
+
 const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const {
     pages, updatePageTitle, updatePageContent, deletePage, duplicatePage, movePage, addPage,
     fontLang, fontFamily, fontSize,
     pageSize, orientation, marginPreset,
     pageBackgroundColor, pageBorderStyle, pageBorderColor, pageBorderWidth,
-    headerFormat, footerFormat, showPageNumbers
+    headerFormat, footerFormat, pageNumberConfig
   } = useAppStore();
   
   const { registerEditor, unregisterEditor, setActiveEditor } = useEditorContext();
@@ -145,6 +159,37 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
 
   if (!pageData) return null;
 
+  const getPageNumberDisplay = () => {
+    if (!pageNumberConfig.show) return null;
+    
+    let displayStr = '';
+    const absolutePage = index + 1;
+    if (pageNumberConfig.romanUntilPage > 0 && absolutePage <= pageNumberConfig.romanUntilPage) {
+      displayStr = toRoman(absolutePage);
+    } else {
+      displayStr = pageNumberConfig.romanUntilPage > 0 
+        ? (absolutePage - pageNumberConfig.romanUntilPage).toString() 
+        : absolutePage.toString();
+    }
+
+    let posClasses = "absolute ";
+    if (pageNumberConfig.position.includes('top')) posClasses += "top-4 ";
+    else posClasses += "bottom-4 ";
+
+    if (pageNumberConfig.position.includes('left')) posClasses += "left-12 text-left";
+    else if (pageNumberConfig.position.includes('right')) posClasses += "right-12 text-right";
+    else posClasses += "left-0 right-0 text-center";
+
+    return (
+      <div 
+        className={`${posClasses} text-[10px] font-sans z-10 pointer-events-none`}
+        style={{ color: pageNumberConfig.color }}
+      >
+        {displayStr}
+      </div>
+    );
+  };
+
   return (
     <div id={pageId} className="flex flex-col items-center mb-4 w-full" onKeyDown={(e) => handleKeyDown(e.nativeEvent)}>
       
@@ -206,27 +251,27 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
           <EditorContent editor={editor} />
         </div>
 
-        {/* Footer & Page Number Display */}
-        <div className="absolute left-0 right-0 bottom-0 px-12 pb-4 flex justify-between items-end pointer-events-none">
-          <div 
-            className="flex-1 border-t border-transparent"
-            style={{
-              fontFamily: footerFormat.fontFamily,
-              fontSize: `${footerFormat.fontSize}pt`,
-              color: footerFormat.color,
-              textAlign: footerFormat.align,
-              fontWeight: footerFormat.bold ? 'bold' : 'normal',
-              fontStyle: footerFormat.italic ? 'italic' : 'normal',
-            }}
-          >
-            {footerFormat.text}
-          </div>
-          {showPageNumbers && (
-            <div className="text-[10px] text-gray-500 font-sans ml-4">
-              {index + 1}
+        {/* Footer Display */}
+        {footerFormat.text && (
+          <div className="absolute left-0 right-0 bottom-0 px-12 pb-4 flex justify-between items-end pointer-events-none">
+            <div 
+              className="flex-1 border-t border-transparent"
+              style={{
+                fontFamily: footerFormat.fontFamily,
+                fontSize: `${footerFormat.fontSize}pt`,
+                color: footerFormat.color,
+                textAlign: footerFormat.align,
+                fontWeight: footerFormat.bold ? 'bold' : 'normal',
+                fontStyle: footerFormat.italic ? 'italic' : 'normal',
+              }}
+            >
+              {footerFormat.text}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Page Number Overlay */}
+        {getPageNumberDisplay()}
       </div>
     </div>
   );
