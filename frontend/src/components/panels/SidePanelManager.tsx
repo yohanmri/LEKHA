@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { X, Search, Loader2, AlertCircle, CheckCircle2, Info, BookOpen, Quote, Trash2 } from 'lucide-react';
+import { X, Search, Loader2, AlertCircle, CheckCircle2, Info, BookOpen, Quote, Trash2, RefreshCw } from 'lucide-react';
 import lekhaApi from '../../api/lekhaApi';
 import { useEditorContext } from '../../hooks/useEditorContext';
+import { useTableOfContents } from '../../hooks/useTableOfContents';
+import { buildTocHtml } from '../ribbon/tabs/PagesTab';
 
 const PanelHeader: React.FC<{ title: string; onClose: () => void }> = ({ title, onClose }) => (
   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
@@ -161,6 +163,184 @@ const DialectPanel: React.FC = () => (
   </div>
 );
 
+// ─── Styles & Contents Panel (Right Side) ──────────────────────────────────
+const StylesPanel: React.FC = () => {
+  const { tocConfig, setTocConfig, pages, setPages } = useAppStore();
+  const { getEditor, editorsMap } = useEditorContext();
+  const toc = useTableOfContents();
+  const [activeStyle, setActiveStyle] = useState('Normal');
+  const [editingLevel, setEditingLevel] = useState<'h1'|'h2'|'h3'|'h4'|null>(null);
+
+  const hasTocPage = pages.some(p => p.id.startsWith('page-toc-'));
+
+  const TOC_TEMPLATES = [
+    { id: 'numbered' as const, label: '1.1 Numbered' },
+    { id: 'classic'  as const, label: 'Classic' },
+    { id: 'modern'   as const, label: 'Modern' },
+    { id: 'minimal'  as const, label: 'Minimal' },
+  ];
+
+  // Track cursor style
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const editor = getEditor();
+      if (!editor || editor.isDestroyed) return;
+      if (editor.isActive('heading', { level: 1 })) setActiveStyle('Heading 1');
+      else if (editor.isActive('heading', { level: 2 })) setActiveStyle('Heading 2');
+      else if (editor.isActive('heading', { level: 3 })) setActiveStyle('Heading 3');
+      else if (editor.isActive('heading', { level: 4 })) setActiveStyle('Heading 4');
+      else setActiveStyle('Normal');
+    }, 300);
+    return () => clearInterval(interval);
+  }, [getEditor]);
+
+  const applyHeading = (lvl: 'h1'|'h2'|'h3'|'h4') => {
+    const editor = getEditor();
+    if (!editor) return;
+    const level = parseInt(lvl.replace('h', '')) as 1|2|3|4;
+    editor.chain().focus().setHeading({ level }).run();
+  };
+
+  const handleInsert = () => {
+    const headings = toc.map(h => ({ level: h.level, text: h.text, pageIndex: h.pageIndex, id: h.id }));
+    const tocHtml = buildTocHtml(headings, tocConfig);
+    
+    const tocPage = pages.find(p => p.id.startsWith('page-toc-'));
+    if (tocPage) {
+      setPages(pages.map(p => p.id === tocPage.id ? { ...p, content: tocHtml } : p));
+      
+      const tocEditor = editorsMap.current[tocPage.id];
+      if (tocEditor) {
+        tocEditor.commands.setContent(tocHtml);
+      }
+    } else {
+      setPages([{ id: `page-toc-${Date.now()}`, content: tocHtml, title: 'Table of Contents' }, ...pages]);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#F8F9FA] text-gray-800">
+      <div className="flex-1 overflow-y-auto pb-4">
+        
+        {/* Template & Title Settings */}
+        <div className="p-3 border-b border-gray-200 bg-white">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">TOC Template</p>
+          <div className="grid grid-cols-2 gap-1.5 mb-4">
+            {TOC_TEMPLATES.map(t => (
+              <button key={t.id} onClick={() => setTocConfig({ template: t.id })}
+                className={`py-1.5 px-2 rounded text-[11px] border-2 transition-all font-medium text-left
+                  ${tocConfig.template === t.id ? 'border-[#2B579A] bg-blue-50 text-[#2B579A]' : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-white'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-1.5 items-end">
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Title Text</label>
+                <input
+                  value={tocConfig.titleText}
+                  onChange={e => setTocConfig({ titleText: e.target.value })}
+                  className="w-full text-[12px] border border-gray-300 rounded px-2 py-1.5 outline-none focus:border-[#2B579A]"
+                />
+              </div>
+              <select
+                value={tocConfig.titleFontSize}
+                onChange={e => setTocConfig({ titleFontSize: e.target.value })}
+                className="text-[12px] border border-gray-300 rounded px-1 py-1.5 outline-none bg-white w-[60px]"
+              >
+                {['14','16','18','20','24'].map(s => <option key={s} value={s}>{s}pt</option>)}
+              </select>
+            </div>
+            
+            <label className="flex items-center gap-1.5 text-[11px] text-gray-600 cursor-pointer mt-1">
+              <input type="checkbox" checked={tocConfig.showPageNumbers} onChange={e => setTocConfig({ showPageNumbers: e.target.checked })} className="accent-[#2B579A] w-3.5 h-3.5" />
+              Show page numbers
+            </label>
+          </div>
+        </div>
+
+        {/* Styles List */}
+        <div className="p-3">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Apply & Edit Styles</p>
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            {(['h1', 'h2', 'h3', 'h4'] as const).map((lvl, i) => {
+              const label = `Heading ${lvl.replace('h', '')}`;
+              const isEditing = editingLevel === lvl;
+              const isActive = activeStyle === label;
+              const style = tocConfig.levels[lvl];
+
+              return (
+                <div key={lvl} className={i !== 0 ? 'border-t border-gray-100' : ''}>
+                  <div className={`flex items-center justify-between transition-colors ${isActive ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                    <button 
+                      onClick={() => applyHeading(lvl)} 
+                      className={`flex-1 text-left px-3 py-2 text-[12px] ${isActive ? 'text-[#2B579A] font-bold' : 'text-gray-700 font-medium'}`}
+                    >
+                      {label}
+                    </button>
+                    <button 
+                      onClick={() => setEditingLevel(isEditing ? null : lvl)}
+                      className="p-2 text-gray-400 hover:text-[#2B579A] transition-colors"
+                      title={`Edit ${label} TOC Style`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                    </button>
+                  </div>
+
+                  {isEditing && (
+                    <div className="p-3 bg-gray-50 border-t border-gray-100 flex flex-col gap-2">
+                      <label className="text-[9px] font-bold text-gray-400 uppercase">TOC Appearance</label>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <select
+                          value={style.fontFamily}
+                          onChange={e => setTocConfig({ levels: { ...tocConfig.levels, [lvl]: { ...style, fontFamily: e.target.value } } })}
+                          className="text-[11px] border border-gray-300 rounded px-1.5 py-1 outline-none bg-white max-w-[100px] truncate"
+                        >
+                          {['Inter', 'Arial', 'Times New Roman', 'Georgia', 'Verdana'].map(f => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                        <select
+                          value={style.fontSize}
+                          onChange={e => setTocConfig({ levels: { ...tocConfig.levels, [lvl]: { ...style, fontSize: e.target.value } } })}
+                          className="text-[11px] border border-gray-300 rounded px-1.5 py-1 outline-none bg-white w-[50px]"
+                        >
+                          {['9','10','11','12','13','14','16'].map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <button
+                          onClick={() => setTocConfig({ levels: { ...tocConfig.levels, [lvl]: { ...style, bold: !style.bold } } })}
+                          className={`px-2 py-1 rounded border text-[11px] font-bold transition-colors ${style.bold ? 'bg-[#2B579A] text-white border-[#2B579A]' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                        >
+                          B
+                        </button>
+                        <input
+                          type="color"
+                          value={style.color}
+                          onChange={e => setTocConfig({ levels: { ...tocConfig.levels, [lvl]: { ...style, color: e.target.value } } })}
+                          className="w-6 h-6 p-0 border-none rounded cursor-pointer shrink-0"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Advanced + Insert */}
+      <div className="p-3 border-t border-gray-200 bg-white">
+        <button onClick={handleInsert} disabled={toc.length === 0}
+          className="w-full flex items-center justify-center gap-2 bg-[#2B579A] hover:bg-[#1A365D] disabled:opacity-40 text-white text-[11px] font-bold px-3 py-2.5 rounded shadow-sm transition-colors">
+          <RefreshCw size={12} />
+          {hasTocPage ? 'Update Contents Page' : 'Insert Contents Page'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ─── References Panel ──────────────────────────────────────────────────────────
 const ReferencesPanel: React.FC = () => {
   const { references, addReference, deleteReference } = useAppStore();
@@ -264,16 +444,18 @@ const SidePanelManager: React.FC = () => {
     grammar: 'Grammar Checker',
     dialect: 'Dialect Converter',
     references: 'Manage References',
+    toc: 'Styles',
   };
 
   return (
-    <div className="w-[300px] bg-[#F8F9FA] border-l border-gray-200 flex flex-col z-30 flex-shrink-0">
+    <div className={`bg-[#F8F9FA] border-l border-gray-200 flex flex-col z-30 flex-shrink-0 ${sidePanel === 'toc' ? 'w-[280px]' : 'w-[300px]'}`}>
       <PanelHeader title={titles[sidePanel] ?? ''} onClose={() => setSidePanel(null)} />
-      <div className="flex-1 overflow-y-auto">
-        {sidePanel === 'synonyms' && <SynonymsPanel />}
-        {sidePanel === 'grammar' && <GrammarPanel />}
-        {sidePanel === 'dialect' && <DialectPanel />}
+      <div className="flex-1 overflow-y-auto flex flex-col">
+        {sidePanel === 'synonyms'   && <SynonymsPanel />}
+        {sidePanel === 'grammar'    && <GrammarPanel />}
+        {sidePanel === 'dialect'    && <DialectPanel />}
         {sidePanel === 'references' && <ReferencesPanel />}
+        {sidePanel === 'toc'        && <StylesPanel />}
       </div>
     </div>
   );

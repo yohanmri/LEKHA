@@ -28,10 +28,10 @@ export interface HeaderFooterFormat {
 export type PageNumberStyle = 'arabic' | 'roman' | 'alpha';
 export interface PageNumberRule {
   id: string;
-  startPage: number; // 1-indexed absolute page number
-  endPage?: number;  // Optional end page
+  startPage: number;
+  endPage?: number;
   style: PageNumberStyle;
-  startAt: number;   // Logical number to start counting from (usually 1)
+  startAt: number;
 }
 
 export interface PageNumberConfig {
@@ -44,6 +44,28 @@ export interface PageNumberConfig {
   bold: boolean;
   italic: boolean;
   rules: PageNumberRule[];
+}
+
+export type TocTemplate = 'classic' | 'numbered' | 'modern' | 'minimal';
+
+export interface TocLevelStyle {
+  fontFamily: string;
+  fontSize: string;
+  bold: boolean;
+  color: string;
+}
+
+export interface TocConfig {
+  template: TocTemplate;
+  titleText: string;
+  titleFontSize: string;
+  showPageNumbers: boolean;
+  levels: {
+    h1: TocLevelStyle;
+    h2: TocLevelStyle;
+    h3: TocLevelStyle;
+    h4: TocLevelStyle;
+  };
 }
 
 export interface PageSize { name: PageSizeName; widthPx: number; heightPx: number; }
@@ -89,6 +111,10 @@ interface AppState {
   pageNumberConfig: PageNumberConfig;
   setPageNumberConfig: (config: Partial<PageNumberConfig>) => void;
 
+  // TOC
+  tocConfig: TocConfig;
+  setTocConfig: (config: Partial<TocConfig>) => void;
+
   // References
   references: Reference[];
   addReference: (text: string) => void;
@@ -97,8 +123,8 @@ interface AppState {
   // Tab / panel state
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  sidePanel: 'synonyms' | 'grammar' | 'dialect' | null;
-  setSidePanel: (panel: 'synonyms' | 'grammar' | 'dialect' | null) => void;
+  sidePanel: 'synonyms' | 'grammar' | 'dialect' | 'references' | 'toc' | null;
+  setSidePanel: (panel: 'synonyms' | 'grammar' | 'dialect' | 'references' | 'toc' | null) => void;
 
   // UI toggles
   isKeyboardOpen: boolean;
@@ -214,6 +240,20 @@ export const useAppStore = create<AppState>((set) => ({
     ] 
   },
   setPageNumberConfig: (config) => set((state) => ({ pageNumberConfig: { ...state.pageNumberConfig, ...config } })),
+
+  tocConfig: {
+    template: 'numbered',
+    titleText: 'Table of Contents',
+    titleFontSize: '18',
+    showPageNumbers: true,
+    levels: {
+      h1: { fontFamily: 'Inter', fontSize: '14', bold: true, color: '#111111' },
+      h2: { fontFamily: 'Inter', fontSize: '12', bold: false, color: '#333333' },
+      h3: { fontFamily: 'Inter', fontSize: '12', bold: false, color: '#555555' },
+      h4: { fontFamily: 'Inter', fontSize: '11', bold: false, color: '#777777' },
+    },
+  },
+  setTocConfig: (config) => set((state) => ({ tocConfig: { ...state.tocConfig, ...config } })),
 
   references: [],
   addReference: (text) => set((state) => ({ 

@@ -4,6 +4,7 @@ import HomeTab from '../ribbon/tabs/HomeTab';
 import InsertTab from '../ribbon/tabs/InsertTab';
 import DesignTab from '../ribbon/tabs/DesignTab';
 import LayoutTab from '../ribbon/tabs/LayoutTab';
+import PagesTab from '../ribbon/tabs/PagesTab';
 import ReferencesTab from '../ribbon/tabs/ReferencesTab';
 import SynonymsTab from '../ribbon/tabs/SynonymsTab';
 import GrammarTab from '../ribbon/tabs/GrammarTab';
@@ -15,7 +16,7 @@ const Ribbon: React.FC = () => {
   const { activeTab, setActiveTab } = useAppStore();
 
   const tabs = [
-    'Home', 'Insert', 'Design', 'Layout', 'References',
+    'Home', 'Insert', 'Design', 'Layout', 'Pages', 'References',
     'Synonyms', 'Grammar', 'Dialect',
     'Review', 'View'
   ];
@@ -28,6 +29,7 @@ const Ribbon: React.FC = () => {
       case 'INSERT': return <InsertTab />;
       case 'DESIGN': return <DesignTab />;
       case 'LAYOUT': return <LayoutTab />;
+      case 'PAGES': return <PagesTab />;
       case 'REFERENCES': return <ReferencesTab />;
       case 'SYNONYMS': return <SynonymsTab />;
       case 'GRAMMAR': return <GrammarTab />;

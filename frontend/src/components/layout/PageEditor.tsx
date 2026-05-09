@@ -15,6 +15,7 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { CharacterCount } from '@tiptap/extension-character-count';
+import { Link } from '@tiptap/extension-link';
 import { ChevronUp, ChevronDown, Copy, Trash2, PlusSquare } from 'lucide-react';
 import { useAppStore, MARGIN_PRESETS } from '../../store/useAppStore';
 import { useEditorContext } from '../../hooks/useEditorContext';
@@ -61,7 +62,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     headerFormat, footerFormat, pageNumberConfig
   } = useAppStore();
   
-  const { registerEditor, unregisterEditor, setActiveEditor } = useEditorContext();
+  const { registerEditor, unregisterEditor, setActiveEditor, editorsMap } = useEditorContext();
   const pageData = pages.find(p => p.id === pageId);
   const isSinhala = fontLang === 'sinhala';
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -90,12 +91,45 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       TableCell,
       Placeholder.configure({ placeholder: 'මෙතැන ටයිප් කරන්න...' }),
       CharacterCount,
+      Link.configure({ openOnClick: false, HTMLAttributes: { target: null } }),
     ],
     content: pageData?.content || '',
     editorProps: {
       attributes: {
         class: 'focus:outline-none text-[#323130] leading-[1.9] min-h-[100px]',
       },
+      handleClick: (view, pos, event) => {
+        const target = event.target as HTMLElement;
+        const anchor = target.closest('a');
+        if (anchor) {
+          const href = anchor.getAttribute('href');
+          if (href && href.startsWith('#page-')) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const targetId = href.substring(1);
+            const lastDash = targetId.lastIndexOf('-h');
+            if (lastDash !== -1) {
+              const targetPageId = targetId.substring(0, lastDash);
+              const hIndex = parseInt(targetId.substring(lastDash + 2), 10);
+              
+              const pageEl = document.getElementById(targetPageId);
+              if (pageEl) pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              
+              const targetEditor = editorsMap.current[targetPageId];
+              if (targetEditor) {
+                targetEditor.commands.focus();
+                const headings = targetEditor.view.dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                if (headings[hIndex]) {
+                  headings[hIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }
+            }
+            return true;
+          }
+        }
+        return false;
+      }
     },
     onFocus: () => {
       setActiveEditor(pageId);
@@ -193,10 +227,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
 
   const handleOverflow = useCallback(() => {
     if (!editor) return;
-    // For now, let's just create a new page and focus it.
-    // In a more advanced version, we'd move the last few nodes.
     addPage(index);
-    // Focus will be handled by the next editor's mount logic or context
   }, [index, addPage, editor]);
 
   if (!pageData) return null;

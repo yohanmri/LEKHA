@@ -2,9 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { htmlToText } = require('html-to-text');
 const puppeteer = require('puppeteer');
-const {
-  Document, Packer, Paragraph, TextRun, HeadingLevel,
-} = require('docx');
+const HTMLtoDOCX = require('html-to-docx');
 
 /**
  * POST /api/export
@@ -12,6 +10,9 @@ const {
  */
 router.post('/', async (req, res) => {
   const { html, format = 'txt', title = 'LEKHA Document' } = req.body;
+
+  // Strip non-ASCII characters so Content-Disposition header is always valid
+  const safeTitle = (title || 'LEKHA_Document').replace(/[^\x20-\x7E]/g, '').trim() || 'LEKHA_Document';
 
   if (!html) {
     return res.status(400).json({ error: 'html field is required' });
@@ -40,7 +41,7 @@ router.post('/', async (req, res) => {
 <body>${html}</body>
 </html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${title}.html"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeTitle}.html"`);
     return res.send(fullHtml);
   }
 
@@ -84,8 +85,10 @@ router.post('/', async (req, res) => {
 <body>${html}</body>
 </html>`;
 
-      // Wait for Sinhala fonts to load
-      await page.setContent(pageHtml, { waitUntil: 'networkidle2' });
+      // Load content; use domcontentloaded to avoid hanging on external fonts
+      await page.setContent(pageHtml, { waitUntil: 'domcontentloaded' });
+      // Give fonts a short window to load (avoids networkidle2 timeout on Mac)
+      await new Promise(r => setTimeout(r, 1000));
 
       const pdf = await page.pdf({
         format: 'A4',
@@ -96,7 +99,7 @@ router.post('/', async (req, res) => {
       await browser.close();
 
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${title}.pdf"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeTitle}.pdf"`);
       return res.send(Buffer.from(pdf));
     } catch (err) {
       console.error('[Export PDF]', err);
@@ -107,43 +110,33 @@ router.post('/', async (req, res) => {
   // ── DOCX ───────────────────────────────────────────────────────────────────
   if (format === 'docx') {
     try {
-      // Convert HTML to plain text paragraphs for a basic DOCX
-      // For a richer conversion we use html-to-text and split into paragraphs
-      const plainText = htmlToText(html, { wordwrap: false });
-      const lines = plainText.split('\n');
+      const docxHtml = `<!DOCTYPE html>
+<html lang="si">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <style>
+    body { font-family: 'Noto Sans Sinhala', sans-serif; font-size: 12pt; line-height: 1.9; color: #323130; }
+    h1 { font-size: 20pt; margin: 1em 0 0.5em; }
+    h2 { font-size: 16pt; margin: 1em 0 0.4em; }
+    h3 { font-size: 13pt; margin: 0.8em 0 0.3em; }
+    table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+    td, th { border: 1px solid #ccc; padding: 6px 10px; }
+  </style>
+</head>
+<body>${html}</body>
+</html>`;
 
-      const paragraphs = lines.map((line) => {
-        // Detect headings by ALL-CAPS heuristic from html-to-text
-        const trimmed = line.trim();
-        if (!trimmed) return new Paragraph({ text: '' });
-
-        return new Paragraph({
-          children: [
-            new TextRun({
-              text: trimmed,
-              font: 'Noto Sans Sinhala',
-              size: 24, // 12pt in half-points
-            }),
-          ],
-          spacing: { after: 120 },
-        });
+      const buffer = await HTMLtoDOCX(docxHtml, null, {
+        table: { row: { cantSplit: true } },
+        footer: true,
+        pageNumber: true,
+        font: 'Noto Sans Sinhala',
+        margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
       });
-
-      const doc = new Document({
-        sections: [{
-          properties: {
-            page: {
-              margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }, // 1 inch = 1440 twips
-            },
-          },
-          children: paragraphs,
-        }],
-      });
-
-      const buffer = await Packer.toBuffer(doc);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      res.setHeader('Content-Disposition', `attachment; filename="${title}.docx"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${safeTitle}.docx"`);
       return res.send(buffer);
     } catch (err) {
       console.error('[Export DOCX]', err);
