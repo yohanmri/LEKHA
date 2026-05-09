@@ -4,6 +4,17 @@ export type PageSizeName = 'A4' | 'A3' | 'A5' | 'Letter' | 'Legal' | 'Custom';
 export type OrientationType = 'portrait' | 'landscape';
 export type MarginPreset = 'normal' | 'narrow' | 'wide' | 'moderate';
 
+export interface PageData {
+  id: string;
+  content: string;
+  title: string;
+}
+
+export interface Reference {
+  id: string;
+  text: string;
+}
+
 export interface PageSize { name: PageSizeName; widthPx: number; heightPx: number; }
 
 // Page sizes at 96 DPI (1cm = 37.8px)
@@ -24,6 +35,33 @@ export const MARGIN_PRESETS: Record<MarginPreset, { top: number; right: number; 
 };
 
 interface AppState {
+  // Canva-style Pages
+  pages: PageData[];
+  setPages: (pages: PageData[]) => void;
+  addPage: (index?: number) => void;
+  deletePage: (id: string) => void;
+  duplicatePage: (id: string) => void;
+  movePage: (id: string, direction: 'up' | 'down') => void;
+  updatePageTitle: (id: string, title: string) => void;
+  updatePageContent: (id: string, content: string) => void;
+
+  // Active Editor Tracking
+  activeEditorId: string | null;
+  setActiveEditorId: (id: string | null) => void;
+
+  // Global Header/Footer & Numbering
+  globalHeader: string;
+  setGlobalHeader: (h: string) => void;
+  globalFooter: string;
+  setGlobalFooter: (f: string) => void;
+  showPageNumbers: boolean;
+  setShowPageNumbers: (show: boolean) => void;
+
+  // References
+  references: Reference[];
+  addReference: (text: string) => void;
+  deleteReference: (id: string) => void;
+
   // Tab / panel state
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -80,6 +118,66 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
+  pages: [
+    { id: 'page-1', content: '<p>ලේඛා වෙත සාදරයෙන් පිළිගනිමු!</p>', title: '' }
+  ],
+  setPages: (pages) => set({ pages }),
+  addPage: (index) => set((state) => {
+    const newPage = { id: `page-${Date.now()}`, content: '<p></p>', title: '' };
+    if (index !== undefined) {
+      const newPages = [...state.pages];
+      newPages.splice(index + 1, 0, newPage);
+      return { pages: newPages };
+    }
+    return { pages: [...state.pages, newPage] };
+  }),
+  deletePage: (id) => set((state) => ({
+    pages: state.pages.length > 1 ? state.pages.filter(p => p.id !== id) : state.pages
+  })),
+  duplicatePage: (id) => set((state) => {
+    const index = state.pages.findIndex(p => p.id === id);
+    if (index === -1) return state;
+    const p = state.pages[index];
+    const newPage = { id: `page-${Date.now()}`, content: p.content, title: p.title };
+    const newPages = [...state.pages];
+    newPages.splice(index + 1, 0, newPage);
+    return { pages: newPages };
+  }),
+  movePage: (id, direction) => set((state) => {
+    const index = state.pages.findIndex(p => p.id === id);
+    if (index === -1) return state;
+    if (direction === 'up' && index === 0) return state;
+    if (direction === 'down' && index === state.pages.length - 1) return state;
+    const newPages = [...state.pages];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newPages[index], newPages[targetIndex]] = [newPages[targetIndex], newPages[index]];
+    return { pages: newPages };
+  }),
+  updatePageTitle: (id, title) => set((state) => ({
+    pages: state.pages.map(p => p.id === id ? { ...p, title } : p)
+  })),
+  updatePageContent: (id, content) => set((state) => ({
+    pages: state.pages.map(p => p.id === id ? { ...p, content } : p)
+  })),
+
+  activeEditorId: null,
+  setActiveEditorId: (id) => set({ activeEditorId: id }),
+
+  globalHeader: '',
+  setGlobalHeader: (h) => set({ globalHeader: h }),
+  globalFooter: '',
+  setGlobalFooter: (f) => set({ globalFooter: f }),
+  showPageNumbers: true,
+  setShowPageNumbers: (show) => set({ showPageNumbers: show }),
+
+  references: [],
+  addReference: (text) => set((state) => ({ 
+    references: [...state.references, { id: `ref-${Date.now()}`, text }] 
+  })),
+  deleteReference: (id) => set((state) => ({ 
+    references: state.references.filter(r => r.id !== id) 
+  })),
+
   activeTab: 'HOME',
   setActiveTab: (tab) => set({ activeTab: tab.toUpperCase() }),
 

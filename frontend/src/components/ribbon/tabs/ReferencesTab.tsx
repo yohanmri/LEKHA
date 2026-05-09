@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAppStore } from '../../../store/useAppStore';
 import {
   List, PlusCircle,
   FileText, MessageSquarePlus,
@@ -8,11 +9,13 @@ import {
 import { RibbonGroup, LargeBtn, SmallBtn, SplitLargeBtn, DropBtn } from '../RibbonComponents';
 
 const ReferencesTab: React.FC = () => {
+  const { setSidePanel, toggleLeftPanel } = useAppStore();
+
   return (
     <div className="flex h-full items-center">
 
       <RibbonGroup label="Table of Contents">
-        <LargeBtn icon={List} label="TOC" />
+        <LargeBtn icon={List} label="TOC" onClick={() => toggleLeftPanel()} />
         <SmallBtn icon={PlusCircle} label="Add Text" />
       </RibbonGroup>
 
@@ -25,10 +28,10 @@ const ReferencesTab: React.FC = () => {
       </RibbonGroup>
 
       <RibbonGroup label="Citations">
-        <LargeBtn icon={Quote} label="Insert" />
+        <LargeBtn icon={Quote} label="Insert" onClick={() => setSidePanel('references')} />
         <div className="flex flex-col gap-1 justify-center h-full px-1">
-          <DropBtn label="APA Style" items={[]} />
-          <SmallBtn icon={BookOpen} label="Manage" />
+          <DropBtn label="IEEE Style" items={[]} />
+          <SmallBtn icon={BookOpen} label="Manage" onClick={() => setSidePanel('references')} />
         </div>
       </RibbonGroup>
 

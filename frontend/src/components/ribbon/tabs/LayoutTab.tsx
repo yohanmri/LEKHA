@@ -2,9 +2,9 @@ import React, { useRef } from 'react';
 import {
   FileText, RotateCw, AlignLeft, AlignCenter,
   ZoomIn, ZoomOut, Minus, Plus, ChevronDown,
-  Maximize2,
+  Maximize2, PanelTop, PanelBottom, Hash
 } from 'lucide-react';
-import { RibbonGroup, useDropdown } from '../RibbonComponents';
+import { RibbonGroup, useDropdown, SmallBtn } from '../RibbonComponents';
 import { useAppStore, PAGE_SIZES, MARGIN_PRESETS } from '../../../store/useAppStore';
 import type { PageSizeName, MarginPreset } from '../../../store/useAppStore';
 
@@ -255,6 +255,70 @@ const ZoomControls: React.FC = () => {
   );
 };
 
+// ─── Header & Footer Controls ───────────────────────────────────────────────────
+
+const HeaderFooterControls: React.FC = () => {
+  const { globalHeader, setGlobalHeader, globalFooter, setGlobalFooter, showPageNumbers, setShowPageNumbers } = useAppStore();
+  const { open, setOpen, openDropdown, ref, pos } = useDropdown();
+
+  return (
+    <div ref={ref} className="relative h-full flex items-center px-1">
+      <button
+        onClick={() => open ? setOpen(false) : openDropdown()}
+        className={`flex flex-col items-center justify-center rounded px-2 py-0.5 transition-colors min-w-[56px] h-full gap-0 ${open ? 'bg-[#edebe9]' : 'hover:bg-[#f3f2f1]'} text-[#323130]`}
+        title="Header & Footer Settings"
+      >
+        <PanelTop size={20} strokeWidth={1.5} />
+        <span className="text-[10px] mt-0.5 font-medium">Headers</span>
+        <ChevronDown size={8} className="text-gray-400" />
+      </button>
+
+      {open && (
+        <div
+          className="fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] p-3 flex flex-col gap-3"
+          style={{ top: pos.top, left: pos.left, minWidth: 260 }}
+        >
+          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+            Header & Footer Settings
+          </div>
+          
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold text-gray-700 flex items-center gap-1.5"><PanelTop size={12}/> Header Text</label>
+            <input 
+              type="text" 
+              value={globalHeader}
+              onChange={(e) => setGlobalHeader(e.target.value)}
+              placeholder="e.g., LEKHA DOCUMENT" 
+              className="w-full text-[12px] border border-gray-300 rounded px-2 py-1.5 outline-none focus:border-[#C9973A] bg-gray-50 focus:bg-white"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold text-gray-700 flex items-center gap-1.5"><PanelBottom size={12}/> Footer Text</label>
+            <input 
+              type="text" 
+              value={globalFooter}
+              onChange={(e) => setGlobalFooter(e.target.value)}
+              placeholder="e.g., Confidential" 
+              className="w-full text-[12px] border border-gray-300 rounded px-2 py-1.5 outline-none focus:border-[#C9973A] bg-gray-50 focus:bg-white"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 mt-1 cursor-pointer hover:bg-gray-50 p-1.5 rounded -mx-1.5">
+            <input 
+              type="checkbox" 
+              checked={showPageNumbers}
+              onChange={(e) => setShowPageNumbers(e.target.checked)}
+              className="w-3.5 h-3.5 accent-[#C9973A] cursor-pointer"
+            />
+            <span className="text-[12px] font-medium text-gray-700 flex items-center gap-1"><Hash size={12}/> Show Page Numbers</span>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main LayoutTab ────────────────────────────────────────────────────────────
 
 const LayoutTab: React.FC = () => {
@@ -271,6 +335,10 @@ const LayoutTab: React.FC = () => {
 
       <RibbonGroup label="Margins">
         <MarginsBtn />
+      </RibbonGroup>
+
+      <RibbonGroup label="Header & Footer">
+        <HeaderFooterControls />
       </RibbonGroup>
 
       <RibbonGroup label="Zoom">

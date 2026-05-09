@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { X, Search, Loader2, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { X, Search, Loader2, AlertCircle, CheckCircle2, Info, BookOpen, Quote, Trash2 } from 'lucide-react';
 import lekhaApi from '../../api/lekhaApi';
 import { useEditorContext } from '../../hooks/useEditorContext';
 
@@ -161,6 +161,99 @@ const DialectPanel: React.FC = () => (
   </div>
 );
 
+// ─── References Panel ──────────────────────────────────────────────────────────
+const ReferencesPanel: React.FC = () => {
+  const { references, addReference, deleteReference } = useAppStore();
+  const { getEditor } = useEditorContext();
+  const [newRef, setNewRef] = useState('');
+
+  const handleAdd = () => {
+    if (!newRef.trim()) return;
+    addReference(newRef.trim());
+    setNewRef('');
+  };
+
+  const insertCitation = (index: number) => {
+    const editor = getEditor();
+    if (editor) {
+      editor.chain().focus().insertContent(`[${index + 1}]`).run();
+    }
+  };
+
+  const generateBibliography = () => {
+    const editor = getEditor();
+    if (!editor || references.length === 0) return;
+    
+    let html = '<h3>References</h3><ol>';
+    references.forEach(ref => {
+      html += `<li>${ref.text}</li>`;
+    });
+    html += '</ol><p></p>';
+    
+    editor.chain().focus().insertContent(html).run();
+  };
+
+  return (
+    <div className="flex flex-col gap-4 p-4 h-full">
+      <div>
+        <p className="text-[11px] text-gray-500 mb-2">Add a new reference (IEEE format recommended):</p>
+        <textarea
+          value={newRef}
+          onChange={e => setNewRef(e.target.value)}
+          placeholder="e.g. J. K. Author, Title of chapter, in Title of Book..."
+          className="w-full text-[12px] border border-gray-200 rounded p-2 outline-none focus:border-[#C9973A] transition-colors bg-white min-h-[60px] resize-none"
+        />
+        <button
+          onClick={handleAdd}
+          className="mt-2 flex items-center justify-center gap-1.5 bg-[#C9973A] hover:bg-amber-600 text-white rounded px-3 py-1.5 text-[11px] font-medium transition-colors w-full"
+        >
+          <BookOpen size={13} /> Add Reference
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {references.length === 0 ? (
+          <p className="text-[11px] text-gray-400 text-center italic mt-4">No references added yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reference List</span>
+              <button 
+                onClick={generateBibliography}
+                className="text-[10px] text-[#C9973A] hover:underline font-semibold"
+              >
+                Insert Bibliography
+              </button>
+            </div>
+            {references.map((ref, index) => (
+              <div key={ref.id} className="bg-white border border-gray-100 rounded p-2.5 shadow-sm group">
+                <div className="flex gap-2">
+                  <span className="text-[11px] font-bold text-gray-500">[{index + 1}]</span>
+                  <p className="text-[11px] text-gray-700 flex-1">{ref.text}</p>
+                </div>
+                <div className="flex justify-end gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => insertCitation(index)}
+                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-[#1A7A6E] hover:bg-[#f0faf8] rounded transition-colors"
+                  >
+                    <Quote size={10} /> Insert Citation
+                  </button>
+                  <button 
+                    onClick={() => deleteReference(ref.id)}
+                    className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ─── Manager ─────────────────────────────────────────────────────────────────
 const SidePanelManager: React.FC = () => {
   const { sidePanel, setSidePanel } = useAppStore();
@@ -170,6 +263,7 @@ const SidePanelManager: React.FC = () => {
     synonyms: 'Synonyms',
     grammar: 'Grammar Checker',
     dialect: 'Dialect Converter',
+    references: 'Manage References',
   };
 
   return (
@@ -179,6 +273,7 @@ const SidePanelManager: React.FC = () => {
         {sidePanel === 'synonyms' && <SynonymsPanel />}
         {sidePanel === 'grammar' && <GrammarPanel />}
         {sidePanel === 'dialect' && <DialectPanel />}
+        {sidePanel === 'references' && <ReferencesPanel />}
       </div>
     </div>
   );
