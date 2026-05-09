@@ -79,7 +79,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     pageBackgroundColor, pageBorderStyle, pageBorderColor, pageBorderWidth,
     headerFormat, footerFormat, pageNumberConfig
   } = useAppStore();
-  
+
   const { registerEditor, unregisterEditor, setActiveEditor, editorsMap } = useEditorContext();
   const pageData = pages.find(p => p.id === pageId);
   const isSinhala = fontLang === 'sinhala';
@@ -106,16 +106,16 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
           if (href && href.startsWith('#page-')) {
             event.preventDefault();
             event.stopPropagation();
-            
+
             const targetId = href.substring(1);
             const lastDash = targetId.lastIndexOf('-h');
             if (lastDash !== -1) {
               const targetPageId = targetId.substring(0, lastDash);
               const hIndex = parseInt(targetId.substring(lastDash + 2), 10);
-              
+
               const pageEl = document.getElementById(targetPageId);
               if (pageEl) pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              
+
               const targetEditor = editorsMap.current[targetPageId];
               if (targetEditor) {
                 targetEditor.commands.focus();
@@ -137,7 +137,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     onUpdate: ({ editor }) => {
       // Overflow detection: compare the ProseMirror DOM scrollHeight vs available content area
       const dom = editor.view.dom;
-      
+
       if (dom.scrollHeight > maxContentHeight) {
         // AUTOMATIC FLOW: Move last node(s) to the next page
         const lastNode = editor.state.doc.lastChild;
@@ -231,7 +231,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     }
 
     if (['Enter', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Escape'].includes(e.key)) {
-      singlishBufferRef.current = ''; 
+      singlishBufferRef.current = '';
       return;
     }
     if (e.key === 'Delete') {
@@ -284,9 +284,9 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
 
   const getPageNumberDisplay = () => {
     if (!pageNumberConfig.show) return null;
-    
+
     const absolutePage = index + 1;
-    let rule = pageNumberConfig.rules?.find(r => 
+    let rule = pageNumberConfig.rules?.find(r =>
       absolutePage >= r.startPage && (!r.endPage || absolutePage <= r.endPage)
     );
 
@@ -310,9 +310,9 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     else posClasses += "left-0 right-0 text-center";
 
     return (
-      <div 
+      <div
         className={`${posClasses} z-10 pointer-events-none`}
-        style={{ 
+        style={{
           color: pageNumberConfig.color,
           fontFamily: pageNumberConfig.fontFamily,
           fontSize: `${pageNumberConfig.fontSize}pt`,
@@ -327,7 +327,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
 
   return (
     <div id={pageId} className="flex flex-col items-center mb-4 w-full" onKeyDown={(e) => handleKeyDown(e.nativeEvent)}>
-      
+
       {/* Canva-style Page Toolbar (Detached) */}
       <div className="flex items-center justify-between bg-[#F8F9FA] px-3 py-1.5 rounded-t shadow-sm mb-1" style={{ width: canvasW }}>
         <div className="flex items-center gap-2">
@@ -365,7 +365,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
         {/* Header Display */}
         {headerFormat.text && (
           <div className="absolute left-0 right-0 top-0 px-12 pt-4 pointer-events-none">
-            <div 
+            <div
               className="w-full border-b border-transparent"
               style={{
                 fontFamily: headerFormat.fontFamily,
@@ -389,7 +389,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
         {/* Footer Display */}
         {footerFormat.text && (
           <div className="absolute left-0 right-0 bottom-0 px-12 pb-4 flex justify-between items-end pointer-events-none">
-            <div 
+            <div
               className="flex-1 border-t border-transparent"
               style={{
                 fontFamily: footerFormat.fontFamily,
