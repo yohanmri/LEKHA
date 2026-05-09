@@ -6,7 +6,12 @@ import {
 } from 'lucide-react';
 import { RibbonGroup, useDropdown, SmallBtn } from '../RibbonComponents';
 import { useAppStore, PAGE_SIZES, MARGIN_PRESETS } from '../../../store/useAppStore';
-import type { PageSizeName, MarginPreset } from '../../../store/useAppStore';
+import type { PageSizeName, MarginPreset, PageNumberRule } from '../../../store/useAppStore';
+
+export const AVAILABLE_FONTS = [
+  'Inter', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana',
+  'Noto Sans Sinhala', 'FMAbhaya', 'FMMalithi', 'FMBindumathi', 'FMDerana', 'FMEmanee', 'FMGanganee'
+];
 
 // ─── Page Size Dropdown ───────────────────────────────────────────────────────
 
@@ -280,10 +285,7 @@ const HeaderFooterSettings: React.FC<{
           onChange={e => setFormat({ fontFamily: e.target.value })}
           className="text-[11px] border border-gray-300 rounded px-1 py-0.5 outline-none bg-white cursor-pointer max-w-[100px] truncate"
         >
-          <option value="Inter">Inter</option>
-          <option value="Noto Sans Sinhala">Noto Sans Sinhala</option>
-          <option value="FMAbhaya">FMAbhaya</option>
-          <option value="FMMalithi">FMMalithi</option>
+          {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
 
         {/* Font Size */}
@@ -381,6 +383,21 @@ const PageNumberBtn: React.FC = () => {
   const { pageNumberConfig, setPageNumberConfig } = useAppStore();
   const { open, setOpen, openDropdown, ref, pos } = useDropdown();
 
+  const addRule = () => {
+    const newRule: PageNumberRule = { id: `rule-${Date.now()}`, startPage: 1, style: 'arabic', startAt: 1 };
+    setPageNumberConfig({ rules: [...pageNumberConfig.rules, newRule] });
+  };
+
+  const updateRule = (id: string, updates: Partial<PageNumberRule>) => {
+    setPageNumberConfig({
+      rules: pageNumberConfig.rules.map(r => r.id === id ? { ...r, ...updates } : r)
+    });
+  };
+
+  const deleteRule = (id: string) => {
+    setPageNumberConfig({ rules: pageNumberConfig.rules.filter(r => r.id !== id) });
+  };
+
   return (
     <div ref={ref} className="relative h-full flex items-center px-1">
       <button
@@ -395,11 +412,11 @@ const PageNumberBtn: React.FC = () => {
       {open && (
         <div
           className="fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] p-3 flex flex-col gap-3"
-          style={{ top: pos.top, left: pos.left, minWidth: 260 }}
+          style={{ top: pos.top, left: pos.left, minWidth: 320 }}
         >
           <div className="flex justify-between items-center border-b border-gray-100 pb-1.5">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-              Page Numbers
+              Page Numbers Styling
             </span>
             <label className="flex items-center gap-1.5 cursor-pointer">
               <input 
@@ -412,56 +429,80 @@ const PageNumberBtn: React.FC = () => {
             </label>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="flex flex-col gap-1 text-[11px] text-gray-600 font-medium">
-              Position
-              <select 
-                value={pageNumberConfig.position}
-                onChange={e => setPageNumberConfig({ position: e.target.value as any })}
-                className="border border-gray-300 rounded px-2 py-1 outline-none bg-white focus:border-[#C9973A]"
-              >
-                <option value="top-left">Top Left</option>
-                <option value="top-center">Top Center</option>
-                <option value="top-right">Top Right</option>
-                <option value="bottom-left">Bottom Left</option>
-                <option value="bottom-center">Bottom Center</option>
-                <option value="bottom-right">Bottom Right</option>
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1 text-[11px] text-gray-600 font-medium">
-              Number Color
-              <input 
-                type="color" 
-                value={pageNumberConfig.color}
-                onChange={e => setPageNumberConfig({ color: e.target.value })}
-                className="w-full h-6 p-0 border-none rounded cursor-pointer"
-              />
-            </label>
-
-            <div className="border-t border-gray-100 pt-2 mt-1">
-              <label className="flex flex-col gap-1 text-[11px] text-gray-600 font-medium">
-                Use Roman Numerals Until Page:
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="number" 
-                    min="0"
-                    value={pageNumberConfig.romanUntilPage}
-                    onChange={e => setPageNumberConfig({ romanUntilPage: parseInt(e.target.value) || 0 })}
-                    className="border border-gray-300 rounded px-2 py-1 outline-none focus:border-[#C9973A] w-16"
-                  />
-                  <span className="text-[10px] text-gray-400 font-normal italic">0 = Off</span>
-                </div>
-              </label>
-              <p className="text-[9px] text-gray-400 mt-1 leading-tight">
-                Pages up to this number will display as i, ii, iii. Subsequent pages will restart at 1, 2, 3.
-              </p>
-            </div>
+          <div className="flex flex-col gap-1.5 p-2 bg-gray-50 border border-gray-100 rounded">
+            <label className="text-[11px] font-semibold text-[#1A7A6E] flex items-center gap-1.5 mb-1"><Hash size={12}/> Formatting & Position</label>
             
-            <button className="text-[10px] text-[#C9973A] hover:underline self-start mt-1 font-medium">
-              Advanced Numbering Options...
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1 text-[11px] text-gray-700 cursor-pointer">
+                  <input type="radio" name="vpos" checked={pageNumberConfig.verticalPosition === 'top'} onChange={() => setPageNumberConfig({ verticalPosition: 'top' })} className="accent-[#C9973A]" /> Top
+                </label>
+                <label className="flex items-center gap-1 text-[11px] text-gray-700 cursor-pointer">
+                  <input type="radio" name="vpos" checked={pageNumberConfig.verticalPosition === 'bottom'} onChange={() => setPageNumberConfig({ verticalPosition: 'bottom' })} className="accent-[#C9973A]" /> Bottom
+                </label>
+              </div>
+
+              <div className="flex items-center gap-1 border border-gray-300 rounded overflow-hidden">
+                <button onClick={() => setPageNumberConfig({ horizontalAlign: 'left' })} className={`p-1 ${pageNumberConfig.horizontalAlign === 'left' ? 'bg-[#C9973A] text-white' : 'bg-white hover:bg-gray-100'}`}><AlignLeft size={12} /></button>
+                <button onClick={() => setPageNumberConfig({ horizontalAlign: 'center' })} className={`p-1 ${pageNumberConfig.horizontalAlign === 'center' ? 'bg-[#C9973A] text-white' : 'bg-white hover:bg-gray-100'}`}><AlignCenter size={12} /></button>
+                <button onClick={() => setPageNumberConfig({ horizontalAlign: 'right' })} className={`p-1 ${pageNumberConfig.horizontalAlign === 'right' ? 'bg-[#C9973A] text-white' : 'bg-white hover:bg-gray-100'}`}><AlignLeft size={12} style={{ transform: 'scaleX(-1)' }} /></button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 flex-wrap">
+              <select 
+                value={pageNumberConfig.fontFamily}
+                onChange={e => setPageNumberConfig({ fontFamily: e.target.value })}
+                className="text-[11px] border border-gray-300 rounded px-1 py-0.5 outline-none bg-white cursor-pointer max-w-[90px] truncate"
+              >
+                {AVAILABLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+              <select 
+                value={pageNumberConfig.fontSize}
+                onChange={e => setPageNumberConfig({ fontSize: e.target.value })}
+                className="text-[11px] border border-gray-300 rounded px-1 py-0.5 outline-none bg-white cursor-pointer"
+              >
+                {['8', '10', '12', '14', '16', '18'].map(s => <option key={s} value={s}>{s}pt</option>)}
+              </select>
+              <button onClick={() => setPageNumberConfig({ bold: !pageNumberConfig.bold })} className={`p-1 rounded ${pageNumberConfig.bold ? 'bg-amber-100 text-amber-700' : 'hover:bg-gray-200 text-gray-600'}`}><span className="font-bold text-[11px] w-3 h-3 flex items-center justify-center">B</span></button>
+              <button onClick={() => setPageNumberConfig({ italic: !pageNumberConfig.italic })} className={`p-1 rounded ${pageNumberConfig.italic ? 'bg-amber-100 text-amber-700' : 'hover:bg-gray-200 text-gray-600'}`}><span className="italic font-serif text-[11px] w-3 h-3 flex items-center justify-center">I</span></button>
+              <input type="color" value={pageNumberConfig.color} onChange={e => setPageNumberConfig({ color: e.target.value })} className="w-5 h-5 p-0 border-none rounded cursor-pointer ml-auto" />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold text-gray-600">Numbering Sections</span>
+            <div className="max-h-[150px] overflow-y-auto pr-1 flex flex-col gap-1">
+              {pageNumberConfig.rules.map((rule, idx) => (
+                <div key={rule.id} className="flex flex-col gap-1 bg-gray-50 border border-gray-200 rounded p-1.5 relative group">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-gray-500 w-16">Start Page:</span>
+                    <input type="number" min="1" value={rule.startPage} onChange={e => updateRule(rule.id, { startPage: parseInt(e.target.value) || 1 })} className="w-10 text-[10px] border border-gray-300 rounded px-1 py-0.5 outline-none" />
+                    
+                    <span className="text-[10px] text-gray-500 w-16 text-right">End Page:</span>
+                    <input type="number" min="1" value={rule.endPage || ''} placeholder="Last" onChange={e => updateRule(rule.id, { endPage: e.target.value ? parseInt(e.target.value) : undefined })} className="w-10 text-[10px] border border-gray-300 rounded px-1 py-0.5 outline-none" />
+                    
+                    <button onClick={() => deleteRule(rule.id)} className="ml-auto text-red-400 hover:text-red-600 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><Minus size={12} /></button>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-gray-500 w-16">Style:</span>
+                    <select value={rule.style} onChange={e => updateRule(rule.id, { style: e.target.value as any })} className="text-[10px] border border-gray-300 rounded px-1 py-0.5 outline-none bg-white">
+                      <option value="arabic">1, 2, 3</option>
+                      <option value="roman">i, ii, iii</option>
+                      <option value="alpha">a, b, c</option>
+                    </select>
+                    
+                    <span className="text-[10px] text-gray-500 w-16 text-right">Start At:</span>
+                    <input type="number" min="1" value={rule.startAt} onChange={e => updateRule(rule.id, { startAt: parseInt(e.target.value) || 1 })} className="w-10 text-[10px] border border-gray-300 rounded px-1 py-0.5 outline-none" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={addRule} className="text-[10px] flex items-center justify-center gap-1 bg-[#f0faf8] text-[#1A7A6E] hover:bg-[#1A7A6E] hover:text-white border border-[#1A7A6E]/20 rounded py-1 transition-colors mt-1">
+              <Plus size={10} /> Add Section
             </button>
           </div>
+          
         </div>
       )}
     </div>

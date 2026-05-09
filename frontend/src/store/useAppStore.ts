@@ -25,11 +25,25 @@ export interface HeaderFooterFormat {
   italic: boolean;
 }
 
+export type PageNumberStyle = 'arabic' | 'roman' | 'alpha';
+export interface PageNumberRule {
+  id: string;
+  startPage: number; // 1-indexed absolute page number
+  endPage?: number;  // Optional end page
+  style: PageNumberStyle;
+  startAt: number;   // Logical number to start counting from (usually 1)
+}
+
 export interface PageNumberConfig {
   show: boolean;
-  position: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  verticalPosition: 'top' | 'bottom';
+  horizontalAlign: 'left' | 'center' | 'right';
   color: string;
-  romanUntilPage: number;
+  fontFamily: string;
+  fontSize: string;
+  bold: boolean;
+  italic: boolean;
+  rules: PageNumberRule[];
 }
 
 export interface PageSize { name: PageSizeName; widthPx: number; heightPx: number; }
@@ -186,7 +200,19 @@ export const useAppStore = create<AppState>((set) => ({
   footerFormat: { text: '', fontFamily: 'FMAbhaya', fontSize: '10', color: '#000000', align: 'left', bold: false, italic: false },
   setFooterFormat: (format) => set((state) => ({ footerFormat: { ...state.footerFormat, ...format } })),
   
-  pageNumberConfig: { show: true, position: 'bottom-right', color: '#000000', romanUntilPage: 0 },
+  pageNumberConfig: { 
+    show: true, 
+    verticalPosition: 'bottom', 
+    horizontalAlign: 'right', 
+    color: '#000000', 
+    fontFamily: 'Inter',
+    fontSize: '10',
+    bold: false,
+    italic: false,
+    rules: [
+      { id: 'rule-1', startPage: 1, style: 'arabic', startAt: 1 }
+    ] 
+  },
   setPageNumberConfig: (config) => set((state) => ({ pageNumberConfig: { ...state.pageNumberConfig, ...config } })),
 
   references: [],

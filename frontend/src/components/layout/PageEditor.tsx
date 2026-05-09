@@ -41,6 +41,17 @@ const toRoman = (num: number): string => {
   return str.toLowerCase();
 };
 
+const toAlpha = (num: number): string => {
+  if (num <= 0) return num.toString();
+  let str = '';
+  while (num > 0) {
+    let mod = (num - 1) % 26;
+    str = String.fromCharCode(97 + mod) + str;
+    num = Math.floor((num - mod) / 26);
+  }
+  return str;
+};
+
 const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const {
     pages, updatePageTitle, updatePageContent, deletePage, duplicatePage, movePage, addPage,
@@ -162,28 +173,40 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const getPageNumberDisplay = () => {
     if (!pageNumberConfig.show) return null;
     
-    let displayStr = '';
     const absolutePage = index + 1;
-    if (pageNumberConfig.romanUntilPage > 0 && absolutePage <= pageNumberConfig.romanUntilPage) {
-      displayStr = toRoman(absolutePage);
-    } else {
-      displayStr = pageNumberConfig.romanUntilPage > 0 
-        ? (absolutePage - pageNumberConfig.romanUntilPage).toString() 
-        : absolutePage.toString();
+    let rule = pageNumberConfig.rules?.find(r => 
+      absolutePage >= r.startPage && (!r.endPage || absolutePage <= r.endPage)
+    );
+
+    // If there are rules defined but this page falls outside all of them, don't show a number.
+    if (!rule && pageNumberConfig.rules?.length > 0) return null;
+
+    let displayStr = absolutePage.toString();
+    if (rule) {
+      const logicalNumber = rule.startAt + (absolutePage - rule.startPage);
+      if (rule.style === 'roman') displayStr = toRoman(logicalNumber);
+      else if (rule.style === 'alpha') displayStr = toAlpha(logicalNumber);
+      else displayStr = logicalNumber.toString();
     }
 
     let posClasses = "absolute ";
-    if (pageNumberConfig.position.includes('top')) posClasses += "top-4 ";
+    if (pageNumberConfig.verticalPosition === 'top') posClasses += "top-4 ";
     else posClasses += "bottom-4 ";
 
-    if (pageNumberConfig.position.includes('left')) posClasses += "left-12 text-left";
-    else if (pageNumberConfig.position.includes('right')) posClasses += "right-12 text-right";
+    if (pageNumberConfig.horizontalAlign === 'left') posClasses += "left-12 text-left";
+    else if (pageNumberConfig.horizontalAlign === 'right') posClasses += "right-12 text-right";
     else posClasses += "left-0 right-0 text-center";
 
     return (
       <div 
-        className={`${posClasses} text-[10px] font-sans z-10 pointer-events-none`}
-        style={{ color: pageNumberConfig.color }}
+        className={`${posClasses} z-10 pointer-events-none`}
+        style={{ 
+          color: pageNumberConfig.color,
+          fontFamily: pageNumberConfig.fontFamily,
+          fontSize: `${pageNumberConfig.fontSize}pt`,
+          fontWeight: pageNumberConfig.bold ? 'bold' : 'normal',
+          fontStyle: pageNumberConfig.italic ? 'italic' : 'normal',
+        }}
       >
         {displayStr}
       </div>
