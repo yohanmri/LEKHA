@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 // ─── Shared Ribbon Primitives ──────────────────────────────────────────────────
@@ -70,10 +70,20 @@ export const SinhalaBtn: React.FC<{
   </button>
 );
 
-// Dropdown wrapper hook
+// ─── Dropdown hook using fixed positioning ────────────────────────────────────
+
 export function useDropdown() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  const openDropdown = useCallback(() => {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen(true);
+  }, []);
 
   useEffect(() => {
     const handle = (e: MouseEvent) => {
@@ -83,10 +93,11 @@ export function useDropdown() {
     return () => document.removeEventListener('mousedown', handle);
   }, []);
 
-  return { open, setOpen, ref };
+  return { open, setOpen, openDropdown, ref, pos };
 }
 
-// Split-button with dropdown (large button + arrow that opens menu)
+// ─── Split-button with fixed dropdown ────────────────────────────────────────
+
 export const SplitLargeBtn: React.FC<{
   icon: React.ElementType;
   label: string;
@@ -94,7 +105,7 @@ export const SplitLargeBtn: React.FC<{
   onMain?: () => void;
   color?: string;
 }> = ({ icon: Icon, label, items, onMain, color }) => {
-  const { open, setOpen, ref } = useDropdown();
+  const { open, setOpen, openDropdown, ref, pos } = useDropdown();
 
   return (
     <div ref={ref} className="relative flex h-full flex-shrink-0">
@@ -106,13 +117,16 @@ export const SplitLargeBtn: React.FC<{
         <span className="text-[11px] whitespace-nowrap text-center leading-tight">{label}</span>
       </button>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => open ? setOpen(false) : openDropdown()}
         className="flex items-center justify-center px-1 hover:bg-[#edebe9] rounded-r text-gray-400 transition-colors h-full border-l border-gray-100"
       >
         <ChevronDown size={8} />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-0.5 bg-white border border-gray-200 rounded shadow-xl z-[9999] min-w-[160px] py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div
+          className="fixed bg-white border border-gray-200 rounded shadow-xl z-[9999] min-w-[160px] py-1"
+          style={{ top: pos.top, left: pos.left }}
+        >
           {items.map((item, i) =>
             item.divider ? (
               <div key={i} className="border-t border-gray-100 my-1" />
@@ -133,25 +147,29 @@ export const SplitLargeBtn: React.FC<{
   );
 };
 
-// Small dropdown button (select-like)
+// ─── Small dropdown button (fixed position) ───────────────────────────────────
+
 export const DropBtn: React.FC<{
   label: string;
   items: { label: string; divider?: boolean }[];
   className?: string;
 }> = ({ label, items, className = '' }) => {
-  const { open, setOpen, ref } = useDropdown();
+  const { open, setOpen, openDropdown, ref, pos } = useDropdown();
 
   return (
     <div ref={ref} className={`relative flex-shrink-0 ${className}`}>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => open ? setOpen(false) : openDropdown()}
         className="flex items-center gap-1 border border-transparent hover:border-gray-300 hover:bg-[#f3f2f1] rounded px-1.5 h-6 text-[10.5px] transition-colors text-[#323130]"
       >
         <span className="truncate max-w-[100px]">{label}</span>
         <ChevronDown size={8} className="text-gray-400" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-0.5 bg-white border border-gray-200 rounded shadow-xl z-[9999] min-w-[140px] py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div
+          className="fixed bg-white border border-gray-200 rounded shadow-xl z-[9999] min-w-[140px] py-1"
+          style={{ top: pos.top, left: pos.left }}
+        >
           {items.map((item, i) =>
             item.divider ? (
               <div key={i} className="border-t border-gray-100 my-1" />
@@ -171,10 +189,12 @@ export const DropBtn: React.FC<{
   );
 };
 
-// Divider
+// ─── Divider ─────────────────────────────────────────────────────────────────
+
 export const RibbonDivider = () => <div className="w-px h-10 bg-gray-200 mx-1.5 self-center flex-shrink-0" />;
 
-// Color swatch row
+// ─── Color swatch row ─────────────────────────────────────────────────────────
+
 export const ColorRow: React.FC<{ colors: string[]; onPick?: (c: string) => void }> = ({ colors, onPick }) => (
   <div className="flex gap-0.5 p-1 flex-wrap max-w-[112px]">
     {colors.map((c) => (
