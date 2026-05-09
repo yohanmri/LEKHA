@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-app: #F3F2F1;
+    --bg-document: #FFFFFF;
+    --text-main: #323130;
+    --accent-gold: #C9973A;
+    --accent-teal: #1A7A6E;
+  }
+
+  body {
+    @apply bg-[#F3F2F1] text-[#323130] overflow-hidden m-0 p-0;
+    font-family: 'Inter', 'Noto Sans Sinhala', sans-serif;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+.ProseMirror {
+  outline: none !important;
+}
+
+.ProseMirror p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* Custom TipTap Styles */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
