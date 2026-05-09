@@ -199,6 +199,10 @@ interface AppState {
   // Templates modal
   isTemplatesOpen: boolean;
   setTemplatesOpen: (open: boolean) => void;
+
+  // Dialect auto-suggest
+  dialectAutoConvert: boolean;
+  setDialectAutoConvert: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -369,4 +373,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   isTemplatesOpen: false,
   setTemplatesOpen: (open) => set({ isTemplatesOpen: open }),
+
+  dialectAutoConvert: false,
+  setDialectAutoConvert: (v) => set({ dialectAutoConvert: v }),
 }));

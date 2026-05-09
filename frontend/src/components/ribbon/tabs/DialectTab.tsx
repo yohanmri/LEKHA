@@ -1,13 +1,13 @@
 import React from 'react';
 import {
-  RefreshCw, Globe2, BookMarked, MapPin,
-  Languages, PanelRightOpen, SlidersHorizontal, Sparkles
+  RefreshCw, BookMarked,
+  Languages, SlidersHorizontal, Sparkles
 } from 'lucide-react';
-import { RibbonGroup, SinhalaBtn, LargeBtn, DropBtn, SmallBtn } from '../RibbonComponents';
+import { RibbonGroup, SinhalaBtn, LargeBtn, SmallBtn } from '../RibbonComponents';
 import { useAppStore } from '../../../store/useAppStore';
 
 const DialectTab: React.FC = () => {
-  const { sidePanel, setSidePanel } = useAppStore();
+  const { sidePanel, setSidePanel, dialectAutoConvert, setDialectAutoConvert } = useAppStore();
 
   return (
     <div className="flex h-full items-center">
@@ -15,6 +15,7 @@ const DialectTab: React.FC = () => {
         <div className="bg-[#f3f2f1] text-[#1A7A6E] px-1.5 py-0.5 rounded text-[9px] font-bold border border-green-100">DIALECT</div>
       </div>
 
+      {/* Convert button → opens side panel for selection-based conversion */}
       <RibbonGroup label="Conversion">
         <SinhalaBtn
           icon={RefreshCw}
@@ -22,10 +23,6 @@ const DialectTab: React.FC = () => {
           onClick={() => setSidePanel(sidePanel === 'dialect' ? null : 'dialect')}
           active={sidePanel === 'dialect'}
         />
-        <div className="flex flex-col gap-1 justify-center h-full px-1">
-          <DropBtn label="Standard Sinhala" items={[]} />
-          <DropBtn label="Formal Register" items={[]} />
-        </div>
       </RibbonGroup>
 
       <RibbonGroup label="Tools">
@@ -36,8 +33,15 @@ const DialectTab: React.FC = () => {
         <LargeBtn icon={SlidersHorizontal} label="Settings" />
       </RibbonGroup>
 
+      {/* Auto Suggest → toggles inline ghost-text suggestions while typing */}
       <RibbonGroup label="AI Assistant">
-        <LargeBtn icon={Sparkles} label="Auto Converter" color="#7C3AED" />
+        <LargeBtn
+          icon={Sparkles}
+          label="Auto Suggest"
+          color={dialectAutoConvert ? '#7C3AED' : undefined}
+          active={dialectAutoConvert}
+          onClick={() => setDialectAutoConvert(!dialectAutoConvert)}
+        />
       </RibbonGroup>
     </div>
   );

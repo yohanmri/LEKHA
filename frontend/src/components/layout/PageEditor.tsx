@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { FontFamily } from '@tiptap/extension-font-family';
@@ -73,11 +73,12 @@ const EDITOR_EXTENSIONS = [
 
 const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const {
-    pages, updatePageTitle, updatePageContent, deletePage, duplicatePage, movePage, addPage,
+    pages, updatePageTitle, updatePageContent, deletePage, duplicatePage, movePage, addPage, setPages,
     fontLang, fontFamily, fontSize,
     pageSize, orientation, marginPreset,
     pageBackgroundColor, pageBorderStyle, pageBorderColor, pageBorderWidth,
-    headerFormat, footerFormat, pageNumberConfig
+    headerFormat, footerFormat, pageNumberConfig,
+    dialectAutoConvert,
   } = useAppStore();
 
   const { registerEditor, unregisterEditor, setActiveEditor, editorsMap } = useEditorContext();
@@ -85,6 +86,12 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const isSinhala = fontLang === 'sinhala';
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const singlishBufferRef = useRef(''); // Per-instance buffer — fixes multi-page typing bug
+  const isFlowingRef = useRef(false); // Guard against recursive overflow triggers
+
+  // ── Dialect ghost-text suggestion state ─────────────────────────────────
+  const [dialectSuggestion, setDialectSuggestion] = useState<string | null>(null);
+  const dialectCurrentWordRef = useRef(''); // The word at cursor when suggestion was made
+  const dialectFromRef = useRef(0);         // Start pos of that word in the document
 
   const canvasW = orientation === 'landscape' ? pageSize.heightPx : pageSize.widthPx;
   const canvasH = orientation === 'landscape' ? pageSize.widthPx : pageSize.heightPx;
@@ -135,61 +142,95 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       setActiveEditor(pageId);
     },
     onUpdate: ({ editor }) => {
-      // Overflow detection: compare the ProseMirror DOM scrollHeight vs available content area
-      const dom = editor.view.dom;
+      // ─── Overflow Detection ─────────────────────────────────────────────────
+      // Guard: prevent re-entrant calls when we are already moving content
+      if (isFlowingRef.current) return;
 
-      if (dom.scrollHeight > maxContentHeight) {
-        // AUTOMATIC FLOW: Move last node(s) to the next page
+      // The editor's ProseMirror root element gives us the actual rendered height
+      // of all content, regardless of the parent page clip.
+      const dom = editor.view.dom as HTMLElement;
+      const contentHeight = dom.scrollHeight;
+
+      if (contentHeight > maxContentHeight) {
         const lastNode = editor.state.doc.lastChild;
-        if (lastNode) {
-          const nodeHtml = editor.view.dom.lastElementChild?.outerHTML || '';
-          const nodeSize = lastNode.nodeSize;
-          const pos = editor.state.doc.content.size - nodeSize;
+        if (!lastNode) return;
 
-          // Check if selection is in the node being moved
-          const selection = editor.state.selection;
-          const isSelectionInMovedNode = selection.from > pos;
-          let offsetInNode = 0;
-          if (isSelectionInMovedNode) {
-            offsetInNode = selection.from - pos;
-          }
+        // Get the HTML of the last block node from the live DOM for exact fidelity
+        const lastDomEl = dom.lastElementChild;
+        const nodeHtml = lastDomEl ? lastDomEl.outerHTML : '';
+        if (!nodeHtml) return;
 
-          // Delete from current
-          editor.commands.deleteRange({ from: pos, to: editor.state.doc.content.size });
+        const nodeSize = lastNode.nodeSize;
+        const deleteFrom = editor.state.doc.content.size - nodeSize;
+        const deleteTo = editor.state.doc.content.size;
 
-          // Move to next page
+        // Track whether the cursor was in the node being moved
+        const sel = editor.state.selection;
+        const isSelectionInMovedNode = sel.from >= deleteFrom;
+        const offsetInNode = isSelectionInMovedNode ? sel.from - deleteFrom : 0;
+
+        // Set guard BEFORE making any editor changes
+        isFlowingRef.current = true;
+
+        try {
+          // Delete last block from this editor
+          editor.commands.deleteRange({ from: deleteFrom, to: deleteTo });
+
           const nextPageIndex = index + 1;
+
           if (nextPageIndex < pages.length) {
+            // ── Next page already exists: prepend the node ──────────────────
             const nextPageId = pages[nextPageIndex].id;
             const nextEditor = editorsMap.current[nextPageId];
-            if (nextEditor) {
-              nextEditor.commands.insertContentAt(0, nodeHtml);
+
+            if (nextEditor && !nextEditor.isDestroyed) {
+              // Insert at position 1 (start of document body in ProseMirror)
+              nextEditor.commands.insertContentAt(1, nodeHtml);
               if (isSelectionInMovedNode) {
-                // Focus next editor and set selection
                 setTimeout(() => {
-                  nextEditor.commands.focus();
-                  nextEditor.commands.setTextSelection(offsetInNode);
-                }, 10);
+                  if (!nextEditor.isDestroyed) {
+                    nextEditor.commands.focus();
+                    nextEditor.commands.setTextSelection(offsetInNode + 1);
+                  }
+                  isFlowingRef.current = false;
+                }, 30);
+                return;
               }
             } else {
-              // Fallback: update store if next editor not ready
-              const nextPageContent = nodeHtml + pages[nextPageIndex].content;
-              updatePageContent(nextPageId, nextPageContent);
+              // Editor not mounted yet: update store content directly
+              const existing = pages[nextPageIndex].content || '';
+              updatePageContent(nextPageId, nodeHtml + existing);
             }
           } else {
-            // Create new page with this content
+            // ── No next page: create one ────────────────────────────────────
             const newId = `page-${Date.now()}`;
-            // Use setPages to add the page with initial content
             const newPage = { id: newId, content: nodeHtml, title: '' };
             const newPages = [...pages];
             newPages.splice(index + 1, 0, newPage);
             setPages(newPages);
 
             if (isSelectionInMovedNode) {
-              // We need to wait for the new editor to mount and register
-              // This is handled by focus management elsewhere or we can use a temporary global state
+              // Focus new page once it mounts and registers
+              const focusInterval = setInterval(() => {
+                const newEditor = editorsMap.current[newId];
+                if (newEditor && !newEditor.isDestroyed) {
+                  clearInterval(focusInterval);
+                  newEditor.commands.focus();
+                  newEditor.commands.setTextSelection(offsetInNode + 1);
+                  isFlowingRef.current = false;
+                }
+              }, 20);
+              // Safety: clear after 1s regardless
+              setTimeout(() => {
+                clearInterval(focusInterval);
+                isFlowingRef.current = false;
+              }, 1000);
+              return;
             }
           }
+        } finally {
+          // Only release guard here if we didn't return early above
+          isFlowingRef.current = false;
         }
       }
 
@@ -197,6 +238,55 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       saveTimeoutRef.current = setTimeout(() => {
         updatePageContent(pageId, editor.getHTML());
       }, 500);
+
+      // ── Dialect auto-suggest ghost text ─────────────────────────────────
+      if (dialectAutoConvert) {
+        const { from } = editor.state.selection;
+        // Get up to 30 chars before cursor to extract current word
+        const textBefore = editor.state.doc.textBetween(
+          Math.max(0, from - 60), from, '\n'
+        );
+        const wordMatch = textBefore.match(/\S+$/);
+        const currentWord = wordMatch ? wordMatch[0] : '';
+
+        if (currentWord.length >= 2) {
+          // Run the same mini-converter used in DialectPanel
+          const clean = currentWord.replace(/[.,!?;:""'']/g, '');
+          const punct = currentWord.slice(clean.length);
+          const DLOOKUP: Record<string, string> = {
+            "෎යා": "෎යැයි", "මම": "මං", "අපි": "අපිලා",
+            "ෞහු": "එයැයි", "ඇය": "එයැයි", "එයා": "එයැයි",
+            "කුඩා": "හීන්", "පැඩි": "හීන්", "පුංචි": "හීන්",
+            "ගොඩක්": "ගොඩෑ", "ටිකක්": "ඩිංගක්",
+            "කොස්": "හේරලි", "ආච්චි": "ආත්තා", "සීයා": "මුත්තා",
+            "යනවා": "යනවැයි", "එනවා": "එනවැයි",
+            "මොනවද": "මක්කයි", "නේද": "නො",
+          };
+          const DVERBS: Record<string, string> = {
+            "කරනවා": "කොරනවා", "කරනවාද": "කොරනවැයි",
+            "යනවාද": "යනවැයි", "කරන්න": "කොරන්ට",
+            "යන්න": "යන්ට", "ගන්න": "ගන්ට", "දේන්න": "දේන්ට",
+          };
+          let suggestion: string | null = null;
+          if (DLOOKUP[clean]) suggestion = DLOOKUP[clean] + punct;
+          else if (DVERBS[clean]) suggestion = DVERBS[clean] + punct;
+          else if (clean.endsWith('නවාද')) suggestion = clean.slice(0, -4) + 'නවැයි' + punct;
+          else if (clean.endsWith('නවා')) suggestion = clean.slice(0, -3) + 'නවැයි' + punct;
+          else if (clean.endsWith('න්න')) suggestion = clean.slice(0, -3) + 'න්ට' + punct;
+
+          if (suggestion && suggestion !== currentWord) {
+            dialectCurrentWordRef.current = currentWord;
+            dialectFromRef.current = from - currentWord.length;
+            setDialectSuggestion(suggestion);
+          } else {
+            setDialectSuggestion(null);
+          }
+        } else {
+          setDialectSuggestion(null);
+        }
+      } else {
+        setDialectSuggestion(null);
+      }
     },
   });
 
@@ -218,6 +308,21 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     if (isMod && isShift && e.key === 'Enter') {
       e.preventDefault();
       addPage(index);
+      return;
+    }
+
+    // ── Tab: accept dialect suggestion (fires before Singlish block) ───────────
+    if (e.key === 'Tab' && dialectSuggestion) {
+      e.preventDefault();
+      const wordLen = dialectCurrentWordRef.current.length;
+      const from = dialectFromRef.current;
+      const to = from + wordLen;
+      editor.chain().focus()
+        .deleteRange({ from, to })
+        .insertContentAt(from, dialectSuggestion + ' ')
+        .run();
+      setDialectSuggestion(null);
+      singlishBufferRef.current = '';
       return;
     }
 
@@ -381,9 +486,52 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
           </div>
         )}
 
-        {/* TipTap Editor */}
-        <div className="flex-1 cursor-text">
+        {/* TipTap Editor + Dialect Ghost Text */}
+        <div className="flex-1 cursor-text relative">
           <EditorContent editor={editor} />
+          {/* Ghost text suggestion overlay — appears inline after cursor word */}
+          {dialectSuggestion && (
+            <div
+              className="pointer-events-none absolute inset-0 flex items-start"
+              style={{ paddingTop: 0 }}
+            >
+              {/* We use a transparent sibling trick: render a hidden mirror of the
+                  existing text, then append the ghost span. For simplicity we show
+                  a floating pill near the bottom of the editor as a suggestion hint. */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '4px',
+                  left: '0px',
+                  right: '0px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '2px 4px',
+                  pointerEvents: 'none',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily,
+                    fontSize: `${fontSize}pt`,
+                    color: 'rgba(124,58,237,0.55)',
+                    background: 'rgba(237,233,254,0.75)',
+                    border: '1px solid rgba(124,58,237,0.25)',
+                    borderRadius: '4px',
+                    padding: '1px 6px',
+                    letterSpacing: '0.01em',
+                    userSelect: 'none',
+                    backdropFilter: 'blur(4px)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {dialectSuggestion}
+                  <span style={{ fontSize: '9px', marginLeft: '6px', opacity: 0.7, color: '#7C3AED' }}>Tab</span>
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer Display */}

@@ -154,14 +154,180 @@ const GrammarPanel: React.FC = () => {
 };
 
 // ─── Dialect Panel ────────────────────────────────────────────────────────────
-const DialectPanel: React.FC = () => (
-  <div className="p-4">
-    <p className="text-[11px] text-gray-500 mb-3">Convert text between Sinhala dialects (formal / colloquial).</p>
-    <div className="bg-amber-50 border border-amber-200 rounded p-3 text-[11px] text-amber-700">
-      Dialect conversion will be available in a future update.
+const DIALECT_LOOKUP: Record<string, { dialect: string; alternatives: string[]; type: string }> = {
+  "෎යා": {"dialect": "෎යැයි", "alternatives": [], "type": "Pronoun"},
+  "මම": {"dialect": "මං", "alternatives": [], "type": "Pronoun"},
+  "අපි": {"dialect": "අපිලා", "alternatives": [], "type": "Pronoun"},
+  "ෞහු": {"dialect": "එයැයි", "alternatives": [], "type": "Pronoun"},
+  "ඇය": {"dialect": "එයැයි", "alternatives": [], "type": "Pronoun"},
+  "එයා": {"dialect": "එයැයි", "alternatives": [], "type": "Pronoun"},
+  "මේයා": {"dialect": "මේයැයි", "alternatives": [], "type": "Pronoun"},
+  "කුඩා": {"dialect": "හීන්", "alternatives": ["හිච්චී"], "type": "Adjective"},
+  "පැඩි": {"dialect": "හීන්", "alternatives": [], "type": "Adjective"},
+  "පුංචි": {"dialect": "හීන්", "alternatives": [], "type": "Adjective"},
+  "ගොඩක්": {"dialect": "ගොඩෑ", "alternatives": [], "type": "Adverb"},
+  "ටිකක්": {"dialect": "ඩිංගක්", "alternatives": [], "type": "Adjective"},
+  "කොස්": {"dialect": "හේරලි", "alternatives": [], "type": "Noun"},
+  "ආච්චි": {"dialect": "ආත්තා", "alternatives": [], "type": "Noun"},
+  "සීයා": {"dialect": "මුත්තා", "alternatives": [], "type": "Noun"},
+  "යනවා": {"dialect": "යනවැයි", "alternatives": [], "type": "Verb"},
+  "එනවා": {"dialect": "එනවැයි", "alternatives": [], "type": "Verb"},
+  "මොනවද": {"dialect": "මක්කයි", "alternatives": [], "type": "Interrogative"},
+  "නේද": {"dialect": "නො", "alternatives": [], "type": "Interrogative"},
+};
+const DIALECT_VERBS: Record<string, string> = {
+  "කරනවා": "කොරනවා", "කරනවාද": "කොරනවැයි", "කරනවාද?": "කොරනවැයි?",
+  "යනවාද": "යනවැයි", "යනවාද?": "යනවැයි?", "කරන්න": "කොරන්ට",
+  "යන්න": "යන්ට", "ගන්න": "ගන්ට", "දේන්න": "දේන්ට",
+  "කනවාද?": "කනවැයි?", "කනවාද": "කනවැයි",
+};
+
+function dialectConvertWord(word: string) {
+  const clean = word.replace(/[.,!?;:""'']/g, '');
+  const punct = word.slice(clean.length);
+  if (DIALECT_LOOKUP[clean]) {
+    const info = DIALECT_LOOKUP[clean];
+    return { converted: info.dialect + punct, changed: true, type: info.type };
+  }
+  if (DIALECT_VERBS[clean]) return { converted: DIALECT_VERBS[clean] + punct, changed: true, type: 'Verb' };
+  if (DIALECT_VERBS[word]) return { converted: DIALECT_VERBS[word], changed: true, type: 'Verb' };
+  if (clean.endsWith('නවාද')) return { converted: clean.slice(0, -4) + 'නවැයි' + punct, changed: true, type: 'Pattern' };
+  if (clean.endsWith('නවා')) return { converted: clean.slice(0, -3) + 'නවැයි' + punct, changed: true, type: 'Pattern' };
+  if (clean.endsWith('න්න')) return { converted: clean.slice(0, -3) + 'න්ට' + punct, changed: true, type: 'Pattern' };
+  if (clean.includes('කරන')) {
+    const c = word.replace('කරන', 'කොරන').replace('වාද', 'වැයි').replace('වා', 'වැයි');
+    if (c !== word) return { converted: c, changed: true, type: 'Pattern' };
+  }
+  return { converted: word, changed: false, type: '' };
+}
+
+export function dialectConvertText(text: string) {
+  const changes: { original: string; converted: string; type: string }[] = [];
+  const output = text.split('\n').map(line =>
+    line.split(' ').map(word => {
+      if (!word.trim()) return word;
+      const r = dialectConvertWord(word);
+      if (r.changed) changes.push({ original: word, converted: r.converted, type: r.type });
+      return r.converted;
+    }).join(' ')
+  ).join('\n');
+  return { output, changes };
+}
+
+const DialectPanel: React.FC = () => {
+  const { dialectAutoConvert, setDialectAutoConvert } = useAppStore();
+  const { getEditor } = useEditorContext();
+  const [result, setResult] = useState<{ original: string; converted: string; changes: {original:string;converted:string;type:string}[] } | null>(null);
+  const [selRange, setSelRange] = useState<{from:number;to:number} | null>(null);
+
+  const handleConvert = () => {
+    const editor = getEditor();
+    if (!editor) return;
+    const { from, to, empty } = editor.state.selection;
+    if (empty) { alert('Please select some text in the editor first.'); return; }
+    const text = editor.state.doc.textBetween(from, to, '\n');
+    const { output, changes } = dialectConvertText(text);
+    setResult({ original: text, converted: output, changes });
+    setSelRange({ from, to });
+  };
+
+  const handleReplace = () => {
+    const editor = getEditor();
+    if (!editor || !result || !selRange) return;
+    editor.chain().focus().setTextSelection(selRange).deleteSelection().insertContent(result.converted).run();
+    setResult(null);
+    setSelRange(null);
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#F8F9FA] text-gray-800">
+      <div className="flex-1 overflow-y-auto pb-4">
+
+        {/* Auto-suggest Status */}
+        <div className="p-3 border-b border-gray-200 bg-white">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">AI Auto-Suggest</p>
+          <div className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${dialectAutoConvert ? 'border-[#7C3AED] bg-purple-50' : 'border-gray-200 bg-gray-50'}`}>
+            <div className="flex-1 mr-3">
+              <p className={`text-[12px] font-bold ${dialectAutoConvert ? 'text-[#7C3AED]' : 'text-gray-500'}`}>
+                {dialectAutoConvert ? '✨ Auto-Suggest ENABLED' : 'Auto-Suggest DISABLED'}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">
+                {dialectAutoConvert ? 'Type a word — see a ghost suggestion. Press Tab to accept.' : 'Click the toggle or use Dialect → AI Assistant → Auto Suggest.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setDialectAutoConvert(!dialectAutoConvert)}
+              className={`relative w-11 h-6 rounded-full transition-all flex-shrink-0 ${dialectAutoConvert ? 'bg-[#7C3AED]' : 'bg-gray-300'}`}
+            >
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${dialectAutoConvert ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Selection Converter */}
+        <div className="p-3 border-b border-gray-200 bg-white">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Selection Converter</p>
+          <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">Select text in the editor, then click below to convert it to Southern Sinhala dialect.</p>
+          <button
+            onClick={handleConvert}
+            className="w-full flex items-center justify-center gap-2 bg-[#1A7A6E] hover:bg-[#155f56] text-white text-[11px] font-bold px-3 py-2.5 rounded shadow-sm transition-colors"
+          >
+            <RefreshCw size={13} /> Convert Selected Text
+          </button>
+        </div>
+
+        {/* Result */}
+        {result && (
+          <div className="p-3">
+            <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Conversion Result</p>
+
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-2">
+              <div className="px-3 py-1 bg-red-50 border-b border-gray-100">
+                <p className="text-[9px] font-bold text-red-400 uppercase">Original</p>
+              </div>
+              <p className="px-3 py-2 text-[11px] text-gray-600 whitespace-pre-wrap leading-relaxed">{result.original}</p>
+            </div>
+
+            <div className="bg-white border-2 border-[#1A7A6E] rounded-lg overflow-hidden mb-3">
+              <div className="px-3 py-1 bg-green-50 border-b border-green-100">
+                <p className="text-[9px] font-bold text-[#1A7A6E] uppercase">Southern Sinhala</p>
+              </div>
+              <p className="px-3 py-2 text-[12px] text-gray-800 whitespace-pre-wrap leading-relaxed font-medium">{result.converted}</p>
+            </div>
+
+            {result.changes.length > 0 ? (
+              <div className="flex flex-col gap-1 mb-3">
+                <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{result.changes.length} word{result.changes.length > 1 ? 's' : ''} converted</p>
+                {result.changes.map((c, i) => (
+                  <div key={i} className="flex items-center gap-2 text-[11px] bg-white border border-gray-100 rounded px-2 py-1.5">
+                    <span className="text-red-400 line-through">{c.original}</span>
+                    <span className="text-gray-400 text-[10px]">→</span>
+                    <span className="text-green-600 font-semibold">{c.converted}</span>
+                    <span className="ml-auto text-[9px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{c.type}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-amber-600 text-center italic py-2 bg-amber-50 rounded mb-3">No dialect conversions found for this selection.</p>
+            )}
+
+            <button
+              onClick={handleReplace}
+              disabled={result.changes.length === 0}
+              className="w-full flex items-center justify-center gap-2 bg-[#C9973A] hover:bg-[#B08432] disabled:opacity-40 text-white text-[11px] font-bold px-3 py-2.5 rounded shadow-sm transition-colors"
+            >
+              Replace in Document
+            </button>
+            <button onClick={() => { setResult(null); setSelRange(null); }}
+              className="w-full mt-1.5 text-[10px] text-gray-400 hover:text-gray-600 py-1 transition-colors">
+              Dismiss
+            </button>
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── Styles & Contents Panel (Right Side) ──────────────────────────────────
 const StylesPanel: React.FC = () => {
