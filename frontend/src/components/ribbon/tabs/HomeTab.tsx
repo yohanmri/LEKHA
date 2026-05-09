@@ -16,7 +16,10 @@ import {
 import { useAppStore } from '../../../store/useAppStore';
 import { useEditorContext } from '../../../hooks/useEditorContext';
 
-const SINHALA_FONTS = ['Noto Sans Sinhala', 'Noto Serif Sinhala', 'Abhaya Libre', 'Yaldevi', 'Gemunu Libre'];
+const SINHALA_FONTS = [
+  'Noto Sans Sinhala', 'Noto Serif Sinhala', 'Abhaya Libre', 
+  'Yaldevi', 'Gemunu Libre', 'Kotta One', 'Post No Bills Colombo'
+];
 const LATIN_FONTS = ['Inter', 'Arial', 'Times New Roman', 'Georgia', 'Verdana', 'Courier New', 'Helvetica'];
 const SIZES = ['8','9','10','11','12','14','16','18','20','22','24','28','32','36','48','72'];
 
@@ -24,13 +27,14 @@ const SIZES = ['8','9','10','11','12','14','16','18','20','22','24','28','32','3
 const ColorPickerBtn: React.FC<{
   icon: React.ElementType;
   title: string;
+  shortcut?: string;
   onPick?: (color: string) => void;
-}> = ({ icon: Icon, title, onPick }) => {
+}> = ({ icon: Icon, title, shortcut, onPick }) => {
   const { open, setOpen, openDropdown, ref, pos } = useDropdown();
   return (
     <div ref={ref} className="relative flex-shrink-0">
       <button
-        title={title}
+        title={`${title} ${shortcut ? `(${shortcut})` : ''}`}
         onClick={() => open ? setOpen(false) : openDropdown()}
         className="flex items-center gap-0.5 rounded px-1.5 hover:bg-[#f3f2f1] h-[22px] text-[#323130] transition-colors"
       >
@@ -56,6 +60,8 @@ const HomeTab: React.FC = () => {
   const { getEditor } = useEditorContext();
 
   const currentFonts = fontLang === 'sinhala' ? SINHALA_FONTS : LATIN_FONTS;
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const mod = isMac ? '⌘' : 'Ctrl';
 
   // Editor command shortcuts
   const cmd = useCallback(() => getEditor()?.chain().focus(), [getEditor]);
@@ -67,7 +73,6 @@ const HomeTab: React.FC = () => {
 
   const handleFontSize = (s: string) => {
     setFontSize(s);
-    // TipTap doesn't have a built-in setFontSize, we use TextStyle + CSS
     const editor = getEditor();
     if (editor) {
       editor.chain().focus().setMark('textStyle', { fontSize: `${s}pt` }).run();
@@ -84,15 +89,15 @@ const HomeTab: React.FC = () => {
           label="Paste"
           onMain={() => cmd()?.run()}
           items={[
-            { label: 'Paste (Ctrl+V)' },
+            { label: `Paste (${mod}+V)` },
             { label: 'Keep Source Formatting' },
             { label: 'Merge Formatting' },
             { label: 'Text Only' },
           ]}
         />
         <div className="flex flex-col justify-center gap-0.5">
-          <SmallBtn icon={Scissors} label="Cut" title="Cut (Ctrl+X)" onClick={() => document.execCommand('cut')} />
-          <SmallBtn icon={Copy} label="Copy" title="Copy (Ctrl+C)" onClick={() => document.execCommand('copy')} />
+          <SmallBtn icon={Scissors} label="Cut" title={`Cut (${mod}+X)`} onClick={() => document.execCommand('cut')} />
+          <SmallBtn icon={Copy} label="Copy" title={`Copy (${mod}+C)`} onClick={() => document.execCommand('copy')} />
           <SmallBtn icon={Paintbrush} label="Painter" title="Format Painter" />
         </div>
       </RibbonGroup>
@@ -102,7 +107,7 @@ const HomeTab: React.FC = () => {
         {/* Language toggle */}
         <div className="flex flex-col gap-1 pr-1.5 border-r border-gray-200 mr-1.5 justify-center">
           <button
-            title="Switch to Sinhala fonts (Singlish input enabled)"
+            title="Sinhala Mode (Singlish Enabled)"
             onClick={() => { setFontLang('sinhala'); handleFontFamily(SINHALA_FONTS[0]!); }}
             className={`flex items-center justify-center w-9 h-7 rounded-md transition-all text-[12px] font-bold border
               ${fontLang === 'sinhala' ? 'bg-[#1A7A6E] text-white border-[#1A7A6E] shadow-sm' : 'hover:bg-gray-100 text-gray-500 border-gray-200'}`}
@@ -110,7 +115,7 @@ const HomeTab: React.FC = () => {
             සිං
           </button>
           <button
-            title="Switch to Latin/English fonts"
+            title="English Mode"
             onClick={() => { setFontLang('latin'); handleFontFamily(LATIN_FONTS[0]!); }}
             className={`flex items-center justify-center w-9 h-7 rounded-md transition-all text-[12px] font-bold border
               ${fontLang === 'latin' ? 'bg-[#C9973A] text-white border-[#C9973A] shadow-sm' : 'hover:bg-gray-100 text-gray-500 border-gray-200'}`}
@@ -137,19 +142,19 @@ const HomeTab: React.FC = () => {
               {SIZES.map(s => <option key={s}>{s}</option>)}
             </select>
             <RibbonDivider />
-            <SmallBtn icon={CaseSensitive} title="Grow Font" onClick={() => { const s = parseInt(fontSize); handleFontSize(String(Math.min(s + 2, 72))); }} />
-            <SmallBtn icon={Eraser} title="Clear Formatting" onClick={() => cmd()?.unsetAllMarks().run()} />
+            <SmallBtn icon={CaseSensitive} title={`Grow Font (${mod}+Shift+>)`} onClick={() => { const s = parseInt(fontSize); handleFontSize(String(Math.min(s + 2, 72))); }} />
+            <SmallBtn icon={Eraser} title="Clear All Formatting" onClick={() => cmd()?.unsetAllMarks().run()} />
           </div>
           {/* Row 2: Bold/Italic/Underline/etc + colors */}
           <div className="flex items-center gap-0">
-            <SmallBtn icon={Bold} title="Bold (Ctrl+B)" active={getEditor()?.isActive('bold')} onClick={() => cmd()?.toggleBold().run()} />
-            <SmallBtn icon={Italic} title="Italic (Ctrl+I)" active={getEditor()?.isActive('italic')} onClick={() => cmd()?.toggleItalic().run()} />
-            <SmallBtn icon={Underline} title="Underline (Ctrl+U)" active={getEditor()?.isActive('underline')} onClick={() => cmd()?.toggleUnderline().run()} />
+            <SmallBtn icon={Bold} title={`Bold (${mod}+B)`} active={getEditor()?.isActive('bold')} onClick={() => cmd()?.toggleBold().run()} />
+            <SmallBtn icon={Italic} title={`Italic (${mod}+I)`} active={getEditor()?.isActive('italic')} onClick={() => cmd()?.toggleItalic().run()} />
+            <SmallBtn icon={Underline} title={`Underline (${mod}+U)`} active={getEditor()?.isActive('underline')} onClick={() => cmd()?.toggleUnderline().run()} />
             <SmallBtn icon={Strikethrough} title="Strikethrough" active={getEditor()?.isActive('strike')} onClick={() => cmd()?.toggleStrike().run()} />
-            <SmallBtn icon={Subscript} title="Subscript" active={getEditor()?.isActive('subscript')} onClick={() => cmd()?.toggleSubscript().run()} />
-            <SmallBtn icon={Superscript} title="Superscript" active={getEditor()?.isActive('superscript')} onClick={() => cmd()?.toggleSuperscript().run()} />
+            <SmallBtn icon={Subscript} title={`Subscript (${mod}+=)`} active={getEditor()?.isActive('subscript')} onClick={() => cmd()?.toggleSubscript().run()} />
+            <SmallBtn icon={Superscript} title={`Superscript (${mod}+Shift++)`} active={getEditor()?.isActive('superscript')} onClick={() => cmd()?.toggleSuperscript().run()} />
             <RibbonDivider />
-            <ColorPickerBtn icon={Highlighter} title="Highlight Color" onPick={(c) => cmd()?.setHighlight({ color: c }).run()} />
+            <ColorPickerBtn icon={Highlighter} title="Text Highlight Color" onPick={(c) => cmd()?.setHighlight({ color: c }).run()} />
             <ColorPickerBtn icon={Baseline} title="Font Color" onPick={(c) => cmd()?.setColor(c).run()} />
           </div>
         </div>
@@ -159,20 +164,20 @@ const HomeTab: React.FC = () => {
       <RibbonGroup label="Paragraph">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-0">
-            <SmallBtn icon={List} title="Bullets" active={getEditor()?.isActive('bulletList')} onClick={() => cmd()?.toggleBulletList().run()} />
-            <SmallBtn icon={ListOrdered} title="Numbering" active={getEditor()?.isActive('orderedList')} onClick={() => cmd()?.toggleOrderedList().run()} />
+            <SmallBtn icon={List} title={`Bullets (${mod}+Shift+L)`} active={getEditor()?.isActive('bulletList')} onClick={() => cmd()?.toggleBulletList().run()} />
+            <SmallBtn icon={ListOrdered} title={`Numbering (${mod}+Shift+N)`} active={getEditor()?.isActive('orderedList')} onClick={() => cmd()?.toggleOrderedList().run()} />
             <SmallBtn icon={IndentDecrease} title="Decrease Indent" onClick={() => cmd()?.liftListItem('listItem').run()} />
             <SmallBtn icon={IndentIncrease} title="Increase Indent" onClick={() => cmd()?.sinkListItem('listItem').run()} />
             <RibbonDivider />
-            <SmallBtn icon={Pilcrow} title="Show/Hide marks" />
+            <SmallBtn icon={Pilcrow} title="Show/Hide Paragraph Marks" />
           </div>
           <div className="flex items-center gap-0">
-            <SmallBtn icon={AlignLeft} title="Align Left" active={getEditor()?.isActive({ textAlign: 'left' })} onClick={() => cmd()?.setTextAlign('left').run()} />
-            <SmallBtn icon={AlignCenter} title="Center" active={getEditor()?.isActive({ textAlign: 'center' })} onClick={() => cmd()?.setTextAlign('center').run()} />
-            <SmallBtn icon={AlignRight} title="Align Right" active={getEditor()?.isActive({ textAlign: 'right' })} onClick={() => cmd()?.setTextAlign('right').run()} />
-            <SmallBtn icon={AlignJustify} title="Justify" active={getEditor()?.isActive({ textAlign: 'justify' })} onClick={() => cmd()?.setTextAlign('justify').run()} />
+            <SmallBtn icon={AlignLeft} title={`Align Left (${mod}+L)`} active={getEditor()?.isActive({ textAlign: 'left' })} onClick={() => cmd()?.setTextAlign('left').run()} />
+            <SmallBtn icon={AlignCenter} title={`Center (${mod}+E)`} active={getEditor()?.isActive({ textAlign: 'center' })} onClick={() => cmd()?.setTextAlign('center').run()} />
+            <SmallBtn icon={AlignRight} title={`Align Right (${mod}+R)`} active={getEditor()?.isActive({ textAlign: 'right' })} onClick={() => cmd()?.setTextAlign('right').run()} />
+            <SmallBtn icon={AlignJustify} title={`Justify (${mod}+J)`} active={getEditor()?.isActive({ textAlign: 'justify' })} onClick={() => cmd()?.setTextAlign('justify').run()} />
             <RibbonDivider />
-            <SmallBtn icon={BetweenHorizonalEnd} title="Line Spacing" />
+            <SmallBtn icon={BetweenHorizonalEnd} title="Line and Paragraph Spacing" />
             <ColorPickerBtn icon={BetweenVerticalEnd} title="Shading" onPick={(c) => cmd()?.setHighlight({ color: c }).run()} />
           </div>
         </div>

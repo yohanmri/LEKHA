@@ -17,11 +17,10 @@ import { Placeholder } from '@tiptap/extension-placeholder';
 import { CharacterCount } from '@tiptap/extension-character-count';
 import { useAppStore } from '../../store/useAppStore';
 import { useEditorContext } from '../../hooks/useEditorContext';
-import lekhaApi from '../../api/lekhaApi';
+import { transliterate } from '../../services/singlishEngine';
 
 // Singlish input buffer
 let singlishBuffer = '';
-let singlishTimer: ReturnType<typeof setTimeout> | null = null;
 
 const EditorArea: React.FC = () => {
   const { setSaveStatus, fontLang, fontFamily, fontSize, zoomLevel } = useAppStore();
@@ -76,53 +75,97 @@ const EditorArea: React.FC = () => {
 
   // Singlish keydown handler
   const handleKeyDown = useCallback(
-    async (e: KeyboardEvent) => {
-      if (!isSinhala || !editor || editor.isDestroyed) return;
-      // Only intercept printable chars (not Ctrl/Alt/Meta combos)
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+    (e: KeyboardEvent) => {
+      if (!editor || editor.isDestroyed) return;
+      
+      const isMod = e.ctrlKey || e.metaKey;
+      const isShift = e.shiftKey;
+
+      // ── Word Processor Shortcuts ──
+      if (isMod && isShift && (e.key === '>' || e.key === '.')) {
+        e.preventDefault();
+        const currentSize = parseInt(fontSize);
+        const newSize = String(Math.min(currentSize + 2, 72));
+        setFontSize(newSize);
+        editor.chain().focus().setMark('textStyle', { fontSize: `${newSize}pt` }).run();
+        return;
+      }
+      if (isMod && isShift && (e.key === '<' || e.key === ',')) {
+        e.preventDefault();
+        const currentSize = parseInt(fontSize);
+        const newSize = String(Math.max(currentSize - 2, 8));
+        setFontSize(newSize);
+        editor.chain().focus().setMark('textStyle', { fontSize: `${newSize}pt` }).run();
+        return;
+      }
+
+      if (!isSinhala) return;
+      
+      // Basic navigation and control keys pass through
+      if (isMod && !isShift) return; // Allow Mod+B, Mod+I, etc.
+      
+      // On navigation or enter/tab, we commit the current buffer
+      if (['Enter', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Escape'].includes(e.key)) {
+        singlishBuffer = ''; 
+        return;
+      }
+
+      if (e.key === 'Delete') {
+        singlishBuffer = '';
+        return;
+      }
+
+      if (e.key === 'Backspace') {
+        if (singlishBuffer.length > 0) {
+          e.preventDefault();
+          
+          // 1. How many characters does the CURRENT buffer represent in the editor?
+          const currentResult = transliterate(singlishBuffer);
+          
+          // 2. Remove last char from singlish buffer
+          singlishBuffer = singlishBuffer.slice(0, -1);
+          
+          // 3. How many characters does the NEW buffer represent?
+          const newResult = transliterate(singlishBuffer);
+          
+          // 4. Delete the old result and insert the new one
+          if (currentResult.length > 0) {
+            editor.commands.deleteRange({ 
+              from: editor.state.selection.from - currentResult.length, 
+              to: editor.state.selection.from 
+            });
+          }
+          if (newResult.length > 0) {
+            editor.commands.insertContent(newResult);
+          }
+          return;
+        }
+        return;
+      }
+
+      // We only intercept single printable characters
       if (e.key.length !== 1) return;
 
       e.preventDefault();
-      singlishBuffer += e.key;
-
-      // Clear any pending debounce
-      if (singlishTimer) clearTimeout(singlishTimer);
-
-      // Trigger on space/punctuation immediately
-      const flushNow = [' ', '.', ',', '!', '?', '\n', '(', ')', ':', ';'].includes(e.key);
-
-      const flush = async () => {
-        const buf = singlishBuffer;
+      
+      const flushChars = [' ', '.', ',', '!', '?', '(', ')', ':', ';', '"', "'", '[', ']', '{', '}'];
+      
+      if (flushChars.includes(e.key)) {
+        editor.commands.insertContent(e.key);
         singlishBuffer = '';
-        singlishTimer = null;
-        if (!buf) return;
-
-        // Check if it's just a special char
-        if (flushNow && buf.length === 1) {
-          editor.commands.insertContent(buf);
-          return;
-        }
-
-        try {
-          const toTransliterate = flushNow ? buf.slice(0, -1) : buf;
-          const suffix = flushNow ? buf.slice(-1) : '';
-
-          if (toTransliterate) {
-            const { data } = await lekhaApi.transliterate(toTransliterate);
-            editor.commands.insertContent(data.result + suffix);
-          } else if (suffix) {
-            editor.commands.insertContent(suffix);
-          }
-        } catch {
-          // Fallback: insert raw singlish text
-          editor.commands.insertContent(buf);
-        }
-      };
-
-      if (flushNow) {
-        await flush();
       } else {
-        singlishTimer = setTimeout(flush, 300);
+        // Real-time update:
+        const prevResult = transliterate(singlishBuffer);
+        singlishBuffer += e.key;
+        const newResult = transliterate(singlishBuffer);
+        
+        if (prevResult.length > 0) {
+          editor.commands.deleteRange({ 
+            from: editor.state.selection.from - prevResult.length, 
+            to: editor.state.selection.from 
+          });
+        }
+        editor.commands.insertContent(newResult);
       }
     },
     [isSinhala, editor]
