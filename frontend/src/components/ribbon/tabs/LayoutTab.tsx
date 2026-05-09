@@ -257,8 +257,59 @@ const ZoomControls: React.FC = () => {
 
 // ─── Header & Footer Controls ───────────────────────────────────────────────────
 
-const HeaderFooterControls: React.FC = () => {
-  const { globalHeader, setGlobalHeader, globalFooter, setGlobalFooter, showPageNumbers, setShowPageNumbers } = useAppStore();
+const HeaderFooterSettings: React.FC<{
+  title: string;
+  icon: React.ReactNode;
+  format: any;
+  setFormat: (f: any) => void;
+}> = ({ title, icon, format, setFormat }) => {
+  return (
+    <div className="flex flex-col gap-1.5 p-2 bg-gray-50 border border-gray-100 rounded">
+      <label className="text-[11px] font-semibold text-[#1A7A6E] flex items-center gap-1.5 mb-1">{icon} {title}</label>
+      <input 
+        type="text" 
+        value={format.text}
+        onChange={(e) => setFormat({ text: e.target.value })}
+        placeholder={`Add ${title.toLowerCase()} text...`} 
+        className="w-full text-[12px] border border-gray-300 rounded px-2 py-1 outline-none focus:border-[#C9973A] bg-white mb-1"
+      />
+      <div className="flex items-center gap-1">
+        {/* Font Size */}
+        <select 
+          value={format.fontSize}
+          onChange={e => setFormat({ fontSize: e.target.value })}
+          className="text-[11px] border border-gray-300 rounded px-1 py-0.5 outline-none bg-white cursor-pointer"
+        >
+          {['8', '10', '12', '14', '16', '18', '24'].map(s => <option key={s} value={s}>{s}pt</option>)}
+        </select>
+        
+        {/* Bold / Italic */}
+        <button onClick={() => setFormat({ bold: !format.bold })} className={`p-1 rounded ${format.bold ? 'bg-amber-100 text-amber-700' : 'hover:bg-gray-200 text-gray-600'}`}><span className="font-bold text-[11px] w-3 h-3 flex items-center justify-center">B</span></button>
+        <button onClick={() => setFormat({ italic: !format.italic })} className={`p-1 rounded ${format.italic ? 'bg-amber-100 text-amber-700' : 'hover:bg-gray-200 text-gray-600'}`}><span className="italic font-serif text-[11px] w-3 h-3 flex items-center justify-center">I</span></button>
+
+        <div className="w-px h-3 bg-gray-300 mx-0.5"></div>
+
+        {/* Alignment */}
+        <button onClick={() => setFormat({ align: 'left' })} className={`p-1 rounded ${format.align === 'left' ? 'bg-amber-100 text-amber-700' : 'hover:bg-gray-200 text-gray-600'}`}><AlignLeft size={12} /></button>
+        <button onClick={() => setFormat({ align: 'center' })} className={`p-1 rounded ${format.align === 'center' ? 'bg-amber-100 text-amber-700' : 'hover:bg-gray-200 text-gray-600'}`}><AlignCenter size={12} /></button>
+        <button onClick={() => setFormat({ align: 'right' })} className={`p-1 rounded ${format.align === 'right' ? 'bg-amber-100 text-amber-700' : 'hover:bg-gray-200 text-gray-600'}`}><AlignLeft size={12} style={{ transform: 'scaleX(-1)' }} /></button>
+
+        <div className="w-px h-3 bg-gray-300 mx-0.5"></div>
+
+        {/* Color */}
+        <input 
+          type="color" 
+          value={format.color}
+          onChange={e => setFormat({ color: e.target.value })}
+          className="w-5 h-5 p-0 border-none rounded cursor-pointer"
+        />
+      </div>
+    </div>
+  );
+};
+
+const HeaderSettingsBtn: React.FC = () => {
+  const { headerFormat, setHeaderFormat } = useAppStore();
   const { open, setOpen, openDropdown, ref, pos } = useDropdown();
 
   return (
@@ -266,10 +317,9 @@ const HeaderFooterControls: React.FC = () => {
       <button
         onClick={() => open ? setOpen(false) : openDropdown()}
         className={`flex flex-col items-center justify-center rounded px-2 py-0.5 transition-colors min-w-[56px] h-full gap-0 ${open ? 'bg-[#edebe9]' : 'hover:bg-[#f3f2f1]'} text-[#323130]`}
-        title="Header & Footer Settings"
       >
         <PanelTop size={20} strokeWidth={1.5} />
-        <span className="text-[10px] mt-0.5 font-medium">Headers</span>
+        <span className="text-[10px] mt-0.5 font-medium">Header</span>
         <ChevronDown size={8} className="text-gray-400" />
       </button>
 
@@ -278,43 +328,52 @@ const HeaderFooterControls: React.FC = () => {
           className="fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] p-3 flex flex-col gap-3"
           style={{ top: pos.top, left: pos.left, minWidth: 260 }}
         >
-          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            Header & Footer Settings
-          </div>
-          
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold text-gray-700 flex items-center gap-1.5"><PanelTop size={12}/> Header Text</label>
-            <input 
-              type="text" 
-              value={globalHeader}
-              onChange={(e) => setGlobalHeader(e.target.value)}
-              placeholder="e.g., LEKHA DOCUMENT" 
-              className="w-full text-[12px] border border-gray-300 rounded px-2 py-1.5 outline-none focus:border-[#C9973A] bg-gray-50 focus:bg-white"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold text-gray-700 flex items-center gap-1.5"><PanelBottom size={12}/> Footer Text</label>
-            <input 
-              type="text" 
-              value={globalFooter}
-              onChange={(e) => setGlobalFooter(e.target.value)}
-              placeholder="e.g., Confidential" 
-              className="w-full text-[12px] border border-gray-300 rounded px-2 py-1.5 outline-none focus:border-[#C9973A] bg-gray-50 focus:bg-white"
-            />
-          </div>
-
-          <label className="flex items-center gap-2 mt-1 cursor-pointer hover:bg-gray-50 p-1.5 rounded -mx-1.5">
-            <input 
-              type="checkbox" 
-              checked={showPageNumbers}
-              onChange={(e) => setShowPageNumbers(e.target.checked)}
-              className="w-3.5 h-3.5 accent-[#C9973A] cursor-pointer"
-            />
-            <span className="text-[12px] font-medium text-gray-700 flex items-center gap-1"><Hash size={12}/> Show Page Numbers</span>
-          </label>
+          <HeaderFooterSettings title="Header Styling" icon={<PanelTop size={12}/>} format={headerFormat} setFormat={setHeaderFormat} />
         </div>
       )}
+    </div>
+  );
+};
+
+const FooterSettingsBtn: React.FC = () => {
+  const { footerFormat, setFooterFormat } = useAppStore();
+  const { open, setOpen, openDropdown, ref, pos } = useDropdown();
+
+  return (
+    <div ref={ref} className="relative h-full flex items-center px-1">
+      <button
+        onClick={() => open ? setOpen(false) : openDropdown()}
+        className={`flex flex-col items-center justify-center rounded px-2 py-0.5 transition-colors min-w-[56px] h-full gap-0 ${open ? 'bg-[#edebe9]' : 'hover:bg-[#f3f2f1]'} text-[#323130]`}
+      >
+        <PanelBottom size={20} strokeWidth={1.5} />
+        <span className="text-[10px] mt-0.5 font-medium">Footer</span>
+        <ChevronDown size={8} className="text-gray-400" />
+      </button>
+
+      {open && (
+        <div
+          className="fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] p-3 flex flex-col gap-3"
+          style={{ top: pos.top, left: pos.left, minWidth: 260 }}
+        >
+          <HeaderFooterSettings title="Footer Styling" icon={<PanelBottom size={12}/>} format={footerFormat} setFormat={setFooterFormat} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PageNumberBtn: React.FC = () => {
+  const { showPageNumbers, setShowPageNumbers } = useAppStore();
+
+  return (
+    <div className="relative h-full flex items-center px-1">
+      <button
+        onClick={() => setShowPageNumbers(!showPageNumbers)}
+        className={`flex flex-col items-center justify-center rounded px-2 py-0.5 transition-colors min-w-[56px] h-full gap-0 ${showPageNumbers ? 'bg-[#c9973a20] text-[#C9973A]' : 'hover:bg-[#f3f2f1] text-[#323130]'}`}
+      >
+        <Hash size={20} strokeWidth={1.5} />
+        <span className="text-[10px] mt-0.5 font-medium">Page No</span>
+      </button>
     </div>
   );
 };
@@ -338,7 +397,9 @@ const LayoutTab: React.FC = () => {
       </RibbonGroup>
 
       <RibbonGroup label="Header & Footer">
-        <HeaderFooterControls />
+        <HeaderSettingsBtn />
+        <FooterSettingsBtn />
+        <PageNumberBtn />
       </RibbonGroup>
 
       <RibbonGroup label="Zoom">

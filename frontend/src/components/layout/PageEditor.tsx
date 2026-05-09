@@ -33,7 +33,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     fontLang, fontFamily, fontSize,
     pageSize, orientation, marginPreset,
     pageBackgroundColor, pageBorderStyle, pageBorderColor, pageBorderWidth,
-    globalHeader, setGlobalHeader, globalFooter, setGlobalFooter, showPageNumbers
+    headerFormat, footerFormat, showPageNumbers
   } = useAppStore();
   
   const { registerEditor, unregisterEditor, setActiveEditor } = useEditorContext();
@@ -152,14 +152,6 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       <div className="flex items-center justify-between bg-[#F8F9FA] px-3 py-1.5 rounded-t shadow-sm mb-1" style={{ width: canvasW }}>
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-bold text-gray-800">Page {index + 1}</span>
-          {pageData.title && <span className="text-gray-400 text-xs">-</span>}
-          <input 
-            type="text" 
-            value={pageData.title}
-            onChange={(e) => updatePageTitle(pageId, e.target.value)}
-            placeholder="Add page title"
-            className="bg-transparent text-[13px] text-gray-500 font-medium border-none outline-none focus:text-gray-800 placeholder-gray-400 w-48"
-          />
         </div>
         <div className="flex items-center gap-1.5 text-gray-500">
           <button onClick={() => movePage(pageId, 'up')} className="p-1 hover:bg-gray-200 rounded" title="Move up"><ChevronUp size={16} strokeWidth={2.5} /></button>
@@ -191,10 +183,20 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
         }}
       >
         {/* Header Display */}
-        {globalHeader && (
+        {headerFormat.text && (
           <div className="absolute left-0 right-0 top-0 px-12 pt-4 pointer-events-none">
-            <div className="w-full text-center text-[10px] text-gray-400 font-sans uppercase tracking-widest border-b border-transparent">
-              {globalHeader}
+            <div 
+              className="w-full border-b border-transparent"
+              style={{
+                fontFamily: headerFormat.fontFamily,
+                fontSize: `${headerFormat.fontSize}pt`,
+                color: headerFormat.color,
+                textAlign: headerFormat.align,
+                fontWeight: headerFormat.bold ? 'bold' : 'normal',
+                fontStyle: headerFormat.italic ? 'italic' : 'normal',
+              }}
+            >
+              {headerFormat.text}
             </div>
           </div>
         )}
@@ -206,8 +208,18 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
 
         {/* Footer & Page Number Display */}
         <div className="absolute left-0 right-0 bottom-0 px-12 pb-4 flex justify-between items-end pointer-events-none">
-          <div className="flex-1 text-left text-[10px] text-gray-400 font-sans border-t border-transparent">
-            {globalFooter}
+          <div 
+            className="flex-1 border-t border-transparent"
+            style={{
+              fontFamily: footerFormat.fontFamily,
+              fontSize: `${footerFormat.fontSize}pt`,
+              color: footerFormat.color,
+              textAlign: footerFormat.align,
+              fontWeight: footerFormat.bold ? 'bold' : 'normal',
+              fontStyle: footerFormat.italic ? 'italic' : 'normal',
+            }}
+          >
+            {footerFormat.text}
           </div>
           {showPageNumbers && (
             <div className="text-[10px] text-gray-500 font-sans ml-4">

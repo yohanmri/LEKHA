@@ -15,6 +15,16 @@ export interface Reference {
   text: string;
 }
 
+export interface HeaderFooterFormat {
+  text: string;
+  fontFamily: string;
+  fontSize: string;
+  color: string;
+  align: 'left' | 'center' | 'right';
+  bold: boolean;
+  italic: boolean;
+}
+
 export interface PageSize { name: PageSizeName; widthPx: number; heightPx: number; }
 
 // Page sizes at 96 DPI (1cm = 37.8px)
@@ -50,10 +60,11 @@ interface AppState {
   setActiveEditorId: (id: string | null) => void;
 
   // Global Header/Footer & Numbering
-  globalHeader: string;
-  setGlobalHeader: (h: string) => void;
-  globalFooter: string;
-  setGlobalFooter: (f: string) => void;
+  headerFormat: HeaderFooterFormat;
+  setHeaderFormat: (format: Partial<HeaderFooterFormat>) => void;
+  footerFormat: HeaderFooterFormat;
+  setFooterFormat: (format: Partial<HeaderFooterFormat>) => void;
+  
   showPageNumbers: boolean;
   setShowPageNumbers: (show: boolean) => void;
 
@@ -163,10 +174,10 @@ export const useAppStore = create<AppState>((set) => ({
   activeEditorId: null,
   setActiveEditorId: (id) => set({ activeEditorId: id }),
 
-  globalHeader: '',
-  setGlobalHeader: (h) => set({ globalHeader: h }),
-  globalFooter: '',
-  setGlobalFooter: (f) => set({ globalFooter: f }),
+  headerFormat: { text: '', fontFamily: 'FMAbhaya', fontSize: '10', color: '#9CA3AF', align: 'center', bold: false, italic: false },
+  setHeaderFormat: (format) => set((state) => ({ headerFormat: { ...state.headerFormat, ...format } })),
+  footerFormat: { text: '', fontFamily: 'FMAbhaya', fontSize: '10', color: '#9CA3AF', align: 'left', bold: false, italic: false },
+  setFooterFormat: (format) => set((state) => ({ footerFormat: { ...state.footerFormat, ...format } })),
   showPageNumbers: true,
   setShowPageNumbers: (show) => set({ showPageNumbers: show }),
 
