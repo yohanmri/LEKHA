@@ -63,8 +63,8 @@ const Ribbon: React.FC = () => {
       </div>
 
       {/* Ribbon Groups — clean, no overflow hack */}
-      <div className="h-[92px] px-2 bg-white overflow-x-auto no-scrollbar">
-        <div className="flex h-[92px] items-center">
+      <div className="h-[92px] bg-white overflow-x-auto no-scrollbar">
+        <div className="flex h-[92px] items-center w-max px-2">
           {renderTabContent()}
         </div>
       </div>

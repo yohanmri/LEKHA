@@ -5,7 +5,7 @@ import { ChevronDown } from 'lucide-react';
 
 export const RibbonGroup: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="flex flex-col h-[92px] border-r border-gray-200 px-2 py-1 flex-shrink-0 bg-white">
-    <div className="flex-1 flex items-center justify-center gap-1 flex-nowrap min-h-0">
+    <div className="flex-1 flex items-center justify-center gap-1.5 flex-nowrap min-h-0">
       {children}
     </div>
     <div className="text-[10px] text-gray-500 text-center mt-auto mb-1 select-none pointer-events-none tracking-tight">
@@ -25,7 +25,7 @@ export const LargeBtn: React.FC<{
 }> = ({ icon: Icon, label, onClick, active, color, hasArrow }) => (
   <button
     onClick={onClick}
-    className={`flex flex-col items-center justify-center rounded px-2 py-1 transition-colors min-w-[44px] h-full gap-0.5
+    className={`flex flex-col items-center justify-center rounded px-2 py-1 transition-colors min-w-[52px] h-full gap-0.5
       ${active ? 'bg-[#edebe9] text-[#2b2b2b] shadow-inner' : 'hover:bg-[#f3f2f1] text-[#323130]'}`}
   >
     <Icon size={22} strokeWidth={1.5} style={color ? { color } : {}} />

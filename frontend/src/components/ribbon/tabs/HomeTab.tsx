@@ -137,7 +137,7 @@ const HomeTab: React.FC = () => {
             <select
               value={fontSize}
               onChange={e => handleFontSize(e.target.value)}
-              className="text-[11px] border border-gray-200 hover:border-gray-400 rounded px-1 h-7 w-12 outline-none bg-white transition-colors text-center text-[#323130] cursor-pointer"
+              className="text-[11px] border border-gray-200 hover:border-gray-400 rounded px-1 h-7 w-14 outline-none bg-white transition-colors text-center text-[#323130] cursor-pointer"
             >
               {SIZES.map(s => <option key={s}>{s}</option>)}
             </select>
