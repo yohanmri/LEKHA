@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import {
   FileText, RotateCw, AlignLeft, AlignCenter,
   ZoomIn, ZoomOut, Minus, Plus, ChevronDown,
-  Maximize2, PanelTop, PanelBottom, Hash
+  Maximize2, PanelTop, PanelBottom, Hash, Trash2, PlusCircle
 } from 'lucide-react';
 import { RibbonGroup, useDropdown, SmallBtn } from '../RibbonComponents';
 import { useAppStore, PAGE_SIZES, MARGIN_PRESETS } from '../../../store/useAppStore';
@@ -472,28 +472,41 @@ const PageNumberBtn: React.FC = () => {
 
           <div className="flex flex-col gap-1.5">
             <span className="text-[11px] font-bold text-gray-600">Numbering Sections</span>
-            <div className="max-h-[150px] overflow-y-auto pr-1 flex flex-col gap-1">
+            <div className="max-h-[200px] overflow-y-auto pr-1 flex flex-col gap-2">
               {pageNumberConfig.rules.map((rule, idx) => (
-                <div key={rule.id} className="flex flex-col gap-1 bg-gray-50 border border-gray-200 rounded p-1.5 relative group">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-gray-500 w-16">Start Page:</span>
-                    <input type="number" min="1" value={rule.startPage} onChange={e => updateRule(rule.id, { startPage: parseInt(e.target.value) || 1 })} className="w-10 text-[10px] border border-gray-300 rounded px-1 py-0.5 outline-none" />
+                <div key={rule.id} className="flex flex-col gap-2 bg-gray-50 border border-gray-200 rounded p-2 relative group">
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[9px] text-gray-400 font-bold uppercase">Start</span>
+                      <input type="number" min="1" value={rule.startPage} onChange={e => updateRule(rule.id, { startPage: parseInt(e.target.value) || 1 })} className="w-12 text-[11px] border border-gray-300 rounded px-1.5 py-1 outline-none focus:border-[#C9973A]" />
+                    </div>
                     
-                    <span className="text-[10px] text-gray-500 w-16 text-right">End Page:</span>
-                    <input type="number" min="1" value={rule.endPage || ''} placeholder="Last" onChange={e => updateRule(rule.id, { endPage: e.target.value ? parseInt(e.target.value) : undefined })} className="w-10 text-[10px] border border-gray-300 rounded px-1 py-0.5 outline-none" />
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[9px] text-gray-400 font-bold uppercase">End</span>
+                      <input type="number" min="1" value={rule.endPage || ''} placeholder="Last" onChange={e => updateRule(rule.id, { endPage: e.target.value ? parseInt(e.target.value) : undefined })} className="w-12 text-[11px] border border-gray-300 rounded px-1.5 py-1 outline-none focus:border-[#C9973A]" />
+                    </div>
+
+                    <div className="flex flex-col gap-0.5 flex-1">
+                      <span className="text-[9px] text-gray-400 font-bold uppercase">Style</span>
+                      <select value={rule.style} onChange={e => updateRule(rule.id, { style: e.target.value as any })} className="text-[11px] border border-gray-300 rounded px-1 py-1 outline-none bg-white focus:border-[#C9973A]">
+                        <option value="arabic">1, 2, 3</option>
+                        <option value="roman">i, ii, iii</option>
+                        <option value="alpha">a, b, c</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[9px] text-gray-400 font-bold uppercase">At</span>
+                      <input type="number" min="1" value={rule.startAt} onChange={e => updateRule(rule.id, { startAt: parseInt(e.target.value) || 1 })} className="w-10 text-[11px] border border-gray-300 rounded px-1 py-1 outline-none focus:border-[#C9973A]" />
+                    </div>
                     
-                    <button onClick={() => deleteRule(rule.id)} className="ml-auto text-red-400 hover:text-red-600 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><Minus size={12} /></button>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-gray-500 w-16">Style:</span>
-                    <select value={rule.style} onChange={e => updateRule(rule.id, { style: e.target.value as any })} className="text-[10px] border border-gray-300 rounded px-1 py-0.5 outline-none bg-white">
-                      <option value="arabic">1, 2, 3</option>
-                      <option value="roman">i, ii, iii</option>
-                      <option value="alpha">a, b, c</option>
-                    </select>
-                    
-                    <span className="text-[10px] text-gray-500 w-16 text-right">Start At:</span>
-                    <input type="number" min="1" value={rule.startAt} onChange={e => updateRule(rule.id, { startAt: parseInt(e.target.value) || 1 })} className="w-10 text-[10px] border border-gray-300 rounded px-1 py-0.5 outline-none" />
+                    <button 
+                      onClick={() => deleteRule(rule.id)} 
+                      className="text-red-500 hover:text-white hover:bg-red-500 p-1.5 rounded transition-all self-end mb-0.5 border border-red-100"
+                      title="Delete Section"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 </div>
               ))}

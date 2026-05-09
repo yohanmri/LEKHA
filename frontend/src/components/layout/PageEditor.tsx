@@ -65,10 +65,12 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const pageData = pages.find(p => p.id === pageId);
   const isSinhala = fontLang === 'sinhala';
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isOverflowing, setIsOverflowing] = React.useState(false);
 
   const canvasW = orientation === 'landscape' ? pageSize.heightPx : pageSize.widthPx;
   const canvasH = orientation === 'landscape' ? pageSize.widthPx : pageSize.heightPx;
   const margins = MARGIN_PRESETS[marginPreset];
+  const maxContentHeight = canvasH - margins.top - margins.bottom;
 
   const editor = useEditor({
     extensions: [
@@ -98,6 +100,14 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       setActiveEditor(pageId);
     },
     onUpdate: ({ editor }) => {
+      // Check for overflow
+      const dom = editor.view.dom;
+      if (dom.scrollHeight > maxContentHeight) {
+        setIsOverflowing(true);
+      } else {
+        setIsOverflowing(false);
+      }
+
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = setTimeout(() => {
         updatePageContent(pageId, editor.getHTML());
@@ -127,7 +137,13 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     }
 
     if (!isSinhala) return;
-    if (isMod && !isShift) return;
+    if (isMod && !isShift) {
+      if (e.key === 'a') {
+        // Let TipTap handle select all, but clear buffer
+        singlishBuffer = '';
+      }
+      return;
+    }
 
     if (['Enter', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Escape'].includes(e.key)) {
       singlishBuffer = ''; 
@@ -138,13 +154,19 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       return;
     }
     if (e.key === 'Backspace') {
+      const { from, to } = editor.state.selection;
+      if (from !== to) {
+        singlishBuffer = '';
+        return;
+      }
       if (singlishBuffer.length > 0) {
         e.preventDefault();
         const currentResult = transliterate(singlishBuffer);
         singlishBuffer = singlishBuffer.slice(0, -1);
         const newResult = transliterate(singlishBuffer);
         if (currentResult.length > 0) {
-          editor.commands.deleteRange({ from: editor.state.selection.from - currentResult.length, to: editor.state.selection.from });
+          const deleteFrom = Math.max(0, editor.state.selection.from - currentResult.length);
+          editor.commands.deleteRange({ from: deleteFrom, to: editor.state.selection.from });
         }
         if (newResult.length > 0) editor.commands.insertContent(newResult);
       }
@@ -167,6 +189,14 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       editor.commands.insertContent(newResult);
     }
   }, [isSinhala, editor, index, addPage]);
+
+  const handleOverflow = useCallback(() => {
+    if (!editor) return;
+    // For now, let's just create a new page and focus it.
+    // In a more advanced version, we'd move the last few nodes.
+    addPage(index);
+    // Focus will be handled by the next editor's mount logic or context
+  }, [index, addPage, editor]);
 
   if (!pageData) return null;
 
@@ -231,13 +261,13 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
         </div>
       </div>
 
-      {/* Page Canvas */}
       <div
-        className="bg-white shadow-lg relative flex flex-col"
+        className={`bg-white shadow-lg relative flex flex-col overflow-hidden transition-shadow duration-300 ${isOverflowing ? 'ring-2 ring-red-500 ring-offset-4 ring-offset-red-50 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : ''}`}
         onClick={() => editor?.commands.focus()}
         style={{
           width: canvasW,
-          minHeight: canvasH,
+          height: canvasH,
+          maxHeight: canvasH,
           paddingTop: margins.top,
           paddingBottom: margins.bottom,
           paddingLeft: margins.left,
@@ -295,6 +325,21 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
 
         {/* Page Number Overlay */}
         {getPageNumberDisplay()}
+
+        {/* Smart Overflow Warning */}
+        {isOverflowing && (
+          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-red-50 to-transparent flex items-center justify-center pointer-events-none z-20">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOverflow();
+              }}
+              className="pointer-events-auto flex items-center gap-2 bg-red-600 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-lg hover:bg-red-700 transition-all transform hover:scale-105"
+            >
+              <PlusSquare size={14} /> Page Overflowing: Add New Page
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
