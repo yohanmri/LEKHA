@@ -20,6 +20,7 @@ import { ChevronUp, ChevronDown, Copy, Trash2, PlusSquare } from 'lucide-react';
 import { useAppStore, MARGIN_PRESETS } from '../../store/useAppStore';
 import { useEditorContext } from '../../hooks/useEditorContext';
 import { transliterate } from '../../services/singlishEngine';
+import { suggestWord } from '../../services/dialectConverter';
 
 interface PageEditorProps {
   pageId: string;
@@ -92,6 +93,9 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const [dialectSuggestion, setDialectSuggestion] = useState<string | null>(null);
   const dialectCurrentWordRef = useRef(''); // The word at cursor when suggestion was made
   const dialectFromRef = useRef(0);         // Start pos of that word in the document
+  // Use a ref so the onUpdate closure always reads the latest value without re-creating the editor
+  const dialectAutoConvertRef = useRef(dialectAutoConvert);
+  useEffect(() => { dialectAutoConvertRef.current = dialectAutoConvert; }, [dialectAutoConvert]);
 
   const canvasW = orientation === 'landscape' ? pageSize.heightPx : pageSize.widthPx;
   const canvasH = orientation === 'landscape' ? pageSize.widthPx : pageSize.heightPx;
@@ -240,41 +244,17 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       }, 500);
 
       // ── Dialect auto-suggest ghost text ─────────────────────────────────
-      if (dialectAutoConvert) {
+      if (dialectAutoConvertRef.current) {
         const { from } = editor.state.selection;
-        // Get up to 30 chars before cursor to extract current word
         const textBefore = editor.state.doc.textBetween(
-          Math.max(0, from - 60), from, '\n'
+          Math.max(0, from - 80), from, '\n'
         );
         const wordMatch = textBefore.match(/\S+$/);
         const currentWord = wordMatch ? wordMatch[0] : '';
 
         if (currentWord.length >= 2) {
-          // Run the same mini-converter used in DialectPanel
-          const clean = currentWord.replace(/[.,!?;:""'']/g, '');
-          const punct = currentWord.slice(clean.length);
-          const DLOOKUP: Record<string, string> = {
-            "෎යා": "෎යැයි", "මම": "මං", "අපි": "අපිලා",
-            "ෞහු": "එයැයි", "ඇය": "එයැයි", "එයා": "එයැයි",
-            "කුඩා": "හීන්", "පැඩි": "හීන්", "පුංචි": "හීන්",
-            "ගොඩක්": "ගොඩෑ", "ටිකක්": "ඩිංගක්",
-            "කොස්": "හේරලි", "ආච්චි": "ආත්තා", "සීයා": "මුත්තා",
-            "යනවා": "යනවැයි", "එනවා": "එනවැයි",
-            "මොනවද": "මක්කයි", "නේද": "නො",
-          };
-          const DVERBS: Record<string, string> = {
-            "කරනවා": "කොරනවා", "කරනවාද": "කොරනවැයි",
-            "යනවාද": "යනවැයි", "කරන්න": "කොරන්ට",
-            "යන්න": "යන්ට", "ගන්න": "ගන්ට", "දේන්න": "දේන්ට",
-          };
-          let suggestion: string | null = null;
-          if (DLOOKUP[clean]) suggestion = DLOOKUP[clean] + punct;
-          else if (DVERBS[clean]) suggestion = DVERBS[clean] + punct;
-          else if (clean.endsWith('නවාද')) suggestion = clean.slice(0, -4) + 'නවැයි' + punct;
-          else if (clean.endsWith('නවා')) suggestion = clean.slice(0, -3) + 'නවැයි' + punct;
-          else if (clean.endsWith('න්න')) suggestion = clean.slice(0, -3) + 'න්ට' + punct;
-
-          if (suggestion && suggestion !== currentWord) {
+          const suggestion = suggestWord(currentWord);
+          if (suggestion) {
             dialectCurrentWordRef.current = currentWord;
             dialectFromRef.current = from - currentWord.length;
             setDialectSuggestion(suggestion);
@@ -287,6 +267,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       } else {
         setDialectSuggestion(null);
       }
+
     },
   });
 

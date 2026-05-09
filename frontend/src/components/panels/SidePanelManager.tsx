@@ -5,6 +5,7 @@ import lekhaApi from '../../api/lekhaApi';
 import { useEditorContext } from '../../hooks/useEditorContext';
 import { useTableOfContents } from '../../hooks/useTableOfContents';
 import { buildTocHtml } from '../ribbon/tabs/PagesTab';
+import { convertText as dialectConvertText } from '../../services/dialectConverter';
 
 const PanelHeader: React.FC<{ title: string; onClose: () => void }> = ({ title, onClose }) => (
   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
@@ -153,66 +154,7 @@ const GrammarPanel: React.FC = () => {
   );
 };
 
-// ─── Dialect Panel ────────────────────────────────────────────────────────────
-const DIALECT_LOOKUP: Record<string, { dialect: string; alternatives: string[]; type: string }> = {
-  "෎යා": {"dialect": "෎යැයි", "alternatives": [], "type": "Pronoun"},
-  "මම": {"dialect": "මං", "alternatives": [], "type": "Pronoun"},
-  "අපි": {"dialect": "අපිලා", "alternatives": [], "type": "Pronoun"},
-  "ෞහු": {"dialect": "එයැයි", "alternatives": [], "type": "Pronoun"},
-  "ඇය": {"dialect": "එයැයි", "alternatives": [], "type": "Pronoun"},
-  "එයා": {"dialect": "එයැයි", "alternatives": [], "type": "Pronoun"},
-  "මේයා": {"dialect": "මේයැයි", "alternatives": [], "type": "Pronoun"},
-  "කුඩා": {"dialect": "හීන්", "alternatives": ["හිච්චී"], "type": "Adjective"},
-  "පැඩි": {"dialect": "හීන්", "alternatives": [], "type": "Adjective"},
-  "පුංචි": {"dialect": "හීන්", "alternatives": [], "type": "Adjective"},
-  "ගොඩක්": {"dialect": "ගොඩෑ", "alternatives": [], "type": "Adverb"},
-  "ටිකක්": {"dialect": "ඩිංගක්", "alternatives": [], "type": "Adjective"},
-  "කොස්": {"dialect": "හේරලි", "alternatives": [], "type": "Noun"},
-  "ආච්චි": {"dialect": "ආත්තා", "alternatives": [], "type": "Noun"},
-  "සීයා": {"dialect": "මුත්තා", "alternatives": [], "type": "Noun"},
-  "යනවා": {"dialect": "යනවැයි", "alternatives": [], "type": "Verb"},
-  "එනවා": {"dialect": "එනවැයි", "alternatives": [], "type": "Verb"},
-  "මොනවද": {"dialect": "මක්කයි", "alternatives": [], "type": "Interrogative"},
-  "නේද": {"dialect": "නො", "alternatives": [], "type": "Interrogative"},
-};
-const DIALECT_VERBS: Record<string, string> = {
-  "කරනවා": "කොරනවා", "කරනවාද": "කොරනවැයි", "කරනවාද?": "කොරනවැයි?",
-  "යනවාද": "යනවැයි", "යනවාද?": "යනවැයි?", "කරන්න": "කොරන්ට",
-  "යන්න": "යන්ට", "ගන්න": "ගන්ට", "දේන්න": "දේන්ට",
-  "කනවාද?": "කනවැයි?", "කනවාද": "කනවැයි",
-};
 
-function dialectConvertWord(word: string) {
-  const clean = word.replace(/[.,!?;:""'']/g, '');
-  const punct = word.slice(clean.length);
-  if (DIALECT_LOOKUP[clean]) {
-    const info = DIALECT_LOOKUP[clean];
-    return { converted: info.dialect + punct, changed: true, type: info.type };
-  }
-  if (DIALECT_VERBS[clean]) return { converted: DIALECT_VERBS[clean] + punct, changed: true, type: 'Verb' };
-  if (DIALECT_VERBS[word]) return { converted: DIALECT_VERBS[word], changed: true, type: 'Verb' };
-  if (clean.endsWith('නවාද')) return { converted: clean.slice(0, -4) + 'නවැයි' + punct, changed: true, type: 'Pattern' };
-  if (clean.endsWith('නවා')) return { converted: clean.slice(0, -3) + 'නවැයි' + punct, changed: true, type: 'Pattern' };
-  if (clean.endsWith('න්න')) return { converted: clean.slice(0, -3) + 'න්ට' + punct, changed: true, type: 'Pattern' };
-  if (clean.includes('කරන')) {
-    const c = word.replace('කරන', 'කොරන').replace('වාද', 'වැයි').replace('වා', 'වැයි');
-    if (c !== word) return { converted: c, changed: true, type: 'Pattern' };
-  }
-  return { converted: word, changed: false, type: '' };
-}
-
-export function dialectConvertText(text: string) {
-  const changes: { original: string; converted: string; type: string }[] = [];
-  const output = text.split('\n').map(line =>
-    line.split(' ').map(word => {
-      if (!word.trim()) return word;
-      const r = dialectConvertWord(word);
-      if (r.changed) changes.push({ original: word, converted: r.converted, type: r.type });
-      return r.converted;
-    }).join(' ')
-  ).join('\n');
-  return { output, changes };
-}
 
 const DialectPanel: React.FC = () => {
   const { dialectAutoConvert, setDialectAutoConvert } = useAppStore();
