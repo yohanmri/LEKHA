@@ -18,15 +18,24 @@ import { CharacterCount } from '@tiptap/extension-character-count';
 import { useAppStore } from '../../store/useAppStore';
 import { useEditorContext } from '../../hooks/useEditorContext';
 import { transliterate } from '../../services/singlishEngine';
+import { MARGIN_PRESETS } from '../../store/useAppStore';
 
 // Singlish input buffer
 let singlishBuffer = '';
 
 const EditorArea: React.FC = () => {
-  const { setSaveStatus, fontLang, fontFamily, fontSize, zoomLevel } = useAppStore();
+  const {
+    setSaveStatus, fontLang, fontFamily, fontSize, zoomLevel,
+    pageSize, orientation, marginPreset,
+  } = useAppStore();
   const { editorRef } = useEditorContext();
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSinhala = fontLang === 'sinhala';
+
+  // Compute actual canvas dimensions from page size + orientation
+  const canvasW = orientation === 'landscape' ? pageSize.heightPx : pageSize.widthPx;
+  const canvasH = orientation === 'landscape' ? pageSize.widthPx : pageSize.heightPx;
+  const margins = MARGIN_PRESETS[marginPreset];
 
   const editor = useEditor({
     extensions: [
@@ -38,7 +47,7 @@ const EditorArea: React.FC = () => {
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Subscript,
       Superscript,
-      Image,
+      Image.configure({ inline: false, allowBase64: true }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -49,7 +58,7 @@ const EditorArea: React.FC = () => {
     content: '<p>ලේඛා වෙත සාදරයෙන් පිළිගනිමු!</p>',
     editorProps: {
       attributes: {
-        class: 'focus:outline-none min-h-[1056px] text-[#323130] leading-[1.9]',
+        class: 'focus:outline-none text-[#323130] leading-[1.9]',
       },
     },
     onUpdate: () => {
@@ -86,7 +95,7 @@ const EditorArea: React.FC = () => {
         e.preventDefault();
         const currentSize = parseInt(fontSize);
         const newSize = String(Math.min(currentSize + 2, 72));
-        setFontSize(newSize);
+        useAppStore.getState().setFontSize(newSize);
         editor.chain().focus().setMark('textStyle', { fontSize: `${newSize}pt` }).run();
         return;
       }
@@ -94,7 +103,7 @@ const EditorArea: React.FC = () => {
         e.preventDefault();
         const currentSize = parseInt(fontSize);
         const newSize = String(Math.max(currentSize - 2, 8));
-        setFontSize(newSize);
+        useAppStore.getState().setFontSize(newSize);
         editor.chain().focus().setMark('textStyle', { fontSize: `${newSize}pt` }).run();
         return;
       }
@@ -102,7 +111,7 @@ const EditorArea: React.FC = () => {
       if (!isSinhala) return;
       
       // Basic navigation and control keys pass through
-      if (isMod && !isShift) return; // Allow Mod+B, Mod+I, etc.
+      if (isMod && !isShift) return;
       
       // On navigation or enter/tab, we commit the current buffer
       if (['Enter', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Escape'].includes(e.key)) {
@@ -118,17 +127,9 @@ const EditorArea: React.FC = () => {
       if (e.key === 'Backspace') {
         if (singlishBuffer.length > 0) {
           e.preventDefault();
-          
-          // 1. How many characters does the CURRENT buffer represent in the editor?
           const currentResult = transliterate(singlishBuffer);
-          
-          // 2. Remove last char from singlish buffer
           singlishBuffer = singlishBuffer.slice(0, -1);
-          
-          // 3. How many characters does the NEW buffer represent?
           const newResult = transliterate(singlishBuffer);
-          
-          // 4. Delete the old result and insert the new one
           if (currentResult.length > 0) {
             editor.commands.deleteRange({ 
               from: editor.state.selection.from - currentResult.length, 
@@ -143,7 +144,6 @@ const EditorArea: React.FC = () => {
         return;
       }
 
-      // We only intercept single printable characters
       if (e.key.length !== 1) return;
 
       e.preventDefault();
@@ -154,7 +154,6 @@ const EditorArea: React.FC = () => {
         editor.commands.insertContent(e.key);
         singlishBuffer = '';
       } else {
-        // Real-time update:
         const prevResult = transliterate(singlishBuffer);
         singlishBuffer += e.key;
         const newResult = transliterate(singlishBuffer);
@@ -168,7 +167,7 @@ const EditorArea: React.FC = () => {
         editor.commands.insertContent(newResult);
       }
     },
-    [isSinhala, editor]
+    [isSinhala, editor, fontSize]
   );
 
   // Attach / detach keydown listener
@@ -182,23 +181,35 @@ const EditorArea: React.FC = () => {
   const scale = zoomLevel / 100;
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#EDEBE9] p-8 no-scrollbar scroll-smooth">
+    <div
+      className="flex-1 overflow-y-auto bg-[#EDEBE9] no-scrollbar"
+      style={{ padding: '32px 32px' }}
+    >
+      {/* Scale wrapper — shrinks/grows around the canvas */}
       <div
-        className="mx-auto"
         style={{
-          width: 816,
           transform: `scale(${scale})`,
           transformOrigin: 'top center',
-          marginBottom: scale < 1 ? `${-(816 * (1 - scale))}px` : 0,
+          // compensate negative space when zoomed out
+          marginBottom: scale < 1 ? `${-(canvasH * (1 - scale))}px` : `${32 * scale}px`,
+          marginTop: 0,
+          display: 'flex',
+          justifyContent: 'center',
         }}
       >
+        {/* The page canvas */}
         <div
-          className="bg-white shadow-lg mx-auto"
+          className="bg-white shadow-lg"
           style={{
-            padding: '96px',
+            width: canvasW,
+            minHeight: canvasH,
+            paddingTop: margins.top,
+            paddingBottom: margins.bottom,
+            paddingLeft: margins.left,
+            paddingRight: margins.right,
             fontFamily: fontFamily,
             fontSize: `${fontSize}pt`,
-            minHeight: 1056,
+            boxSizing: 'border-box',
           }}
         >
           <EditorContent editor={editor} />

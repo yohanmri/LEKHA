@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useDropdown } from '../ribbon/RibbonComponents';
+import { useEditorContext } from '../../hooks/useEditorContext';
 import {
   Save, History, Share2, Download, ChevronDown, UserCircle,
-  FileText, File, Code, Printer, FileType2
+  FileText, File, Code, Printer, FileType2, LayoutTemplate,
 } from 'lucide-react';
+import axios from 'axios';
+
+const API_BASE = 'http://localhost:3001/api';
 
 const TopBar: React.FC = () => {
-  const { documentTitle, setDocumentTitle, saveStatus } = useAppStore();
+  const { documentTitle, setDocumentTitle, saveStatus, setTemplatesOpen } = useAppStore();
+  const { editorRef } = useEditorContext();
   const [isEditing, setIsEditing] = useState(false);
   const [tempTitle, setTempTitle] = useState(documentTitle);
+  const [exporting, setExporting] = useState<string | null>(null);
   const exportDropdown = useDropdown();
   const shareDropdown = useDropdown();
 
@@ -18,13 +24,59 @@ const TopBar: React.FC = () => {
     setDocumentTitle(tempTitle);
   };
 
+  // ── Export helpers ──────────────────────────────────────────────────────────
+
+  const getEditorHtml = () => editorRef.current?.getHTML() ?? '';
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExport = async (format: 'pdf' | 'docx' | 'txt' | 'html' | 'print') => {
+    exportDropdown.setOpen(false);
+
+    if (format === 'print') {
+      window.print();
+      return;
+    }
+
+    const html = getEditorHtml();
+    const title = documentTitle;
+
+    setExporting(format);
+    try {
+      const res = await axios.post(
+        `${API_BASE}/export`,
+        { html, format, title },
+        { responseType: 'blob' }
+      );
+
+      const ext = format === 'pdf' ? 'pdf' : format === 'docx' ? 'docx' : format === 'html' ? 'html' : 'txt';
+      downloadBlob(new Blob([res.data]), `${title}.${ext}`);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error ?? err.message ?? 'Export failed';
+      alert(`Export failed: ${msg}`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  // ── Export options ──────────────────────────────────────────────────────────
+
   const exportOptions = [
-    { icon: FileType2, label: 'Export as PDF', sub: 'Best for sharing & printing', color: '#e53e3e' },
-    { icon: File, label: 'Export as DOCX', sub: 'Microsoft Word format', color: '#2b6cb0' },
-    { icon: FileText, label: 'Export as TXT', sub: 'Plain text, no formatting', color: '#718096' },
-    { icon: Code, label: 'Export as HTML', sub: 'For web publishing', color: '#d97706' },
+    { icon: FileType2, label: 'Export as PDF',  sub: 'Best for sharing & printing', color: '#e53e3e', fmt: 'pdf'  as const },
+    { icon: File,      label: 'Export as DOCX', sub: 'Microsoft Word format',        color: '#2b6cb0', fmt: 'docx' as const },
+    { icon: FileText,  label: 'Export as TXT',  sub: 'Plain text, no formatting',    color: '#718096', fmt: 'txt'  as const },
+    { icon: Code,      label: 'Export as HTML', sub: 'For web publishing',           color: '#d97706', fmt: 'html' as const },
     { divider: true },
-    { icon: Printer, label: 'Print', sub: 'Ctrl+P', color: '#2d3748' },
+    { icon: Printer,   label: 'Print',          sub: 'Ctrl+P',                       color: '#2d3748', fmt: 'print' as const },
   ];
 
   return (
@@ -58,6 +110,16 @@ const TopBar: React.FC = () => {
 
       {/* Right side */}
       <div className="flex items-center gap-0.5">
+
+        {/* Templates button */}
+        <button
+          onClick={() => setTemplatesOpen(true)}
+          className="h-8 px-2 hover:bg-gray-200 rounded flex items-center gap-1.5 text-gray-600 transition-colors"
+          title="Document Templates"
+        >
+          <LayoutTemplate size={14} />
+          <span className="text-[12px]">Templates</span>
+        </button>
 
         {/* Save button */}
         <button className="h-8 px-2 hover:bg-gray-200 rounded flex items-center gap-1.5 text-gray-600 transition-colors">
@@ -103,9 +165,10 @@ const TopBar: React.FC = () => {
           <button
             onClick={() => exportDropdown.setOpen(!exportDropdown.open)}
             className="h-7 bg-[#C9973A] hover:bg-[#B08432] text-white px-3 rounded flex items-center gap-1.5 text-[12px] font-semibold transition-colors shadow-sm"
+            disabled={!!exporting}
           >
             <Download size={14} />
-            <span>Export</span>
+            <span>{exporting ? `Exporting…` : 'Export'}</span>
             <ChevronDown size={12} className={`transition-transform ${exportDropdown.open ? 'rotate-180' : ''}`} />
           </button>
 
@@ -118,8 +181,9 @@ const TopBar: React.FC = () => {
                 ) : (
                   <button
                     key={i}
-                    onClick={() => exportDropdown.setOpen(false)}
+                    onClick={() => handleExport(opt.fmt!)}
                     className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-3 group transition-colors"
+                    disabled={!!exporting}
                   >
                     {opt.icon && <opt.icon size={15} style={{ color: opt.color }} />}
                     <div>

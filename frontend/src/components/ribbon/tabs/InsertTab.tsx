@@ -1,19 +1,29 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   FileText, FileX, Scissors,
-  Table, Grid2x2, Grid3x3,
-  Image, ImagePlus, Monitor, Globe2,
-  Square, Shapes, Star, Triangle,
+  Table, Image,
+  Square, Shapes, Star,
   Link, Bookmark, Navigation,
   PanelTop, PanelBottom, Hash,
-  TextCursorInput, FileSignature, CalendarDays, Type,
-  Sigma, AtSign, ChevronDown
+  TextCursorInput, FileSignature, Type,
+  Sigma, AtSign, ChevronDown, Monitor, FolderOpen, Globe2,
 } from 'lucide-react';
-import { RibbonGroup, LargeBtn, SmallBtn, SplitLargeBtn, DropBtn, useDropdown, RibbonDivider } from '../RibbonComponents';
+import {
+  RibbonGroup, LargeBtn, SmallBtn, SplitLargeBtn, useDropdown, RibbonDivider,
+} from '../RibbonComponents';
+import { useEditorContext } from '../../../hooks/useEditorContext';
+
+// ─── Table Picker ─────────────────────────────────────────────────────────────
 
 const TablePicker: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [hover, setHover] = useState<[number, number]>([0, 0]);
   const ROWS = 8, COLS = 10;
+  const { editorRef } = useEditorContext();
+
+  const insertTable = (rows: number, cols: number) => {
+    editorRef.current?.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+    onClose();
+  };
 
   return (
     <div className="p-2 w-[220px]">
@@ -28,11 +38,11 @@ const TablePicker: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           return (
             <div
               key={idx}
-              className={`w-4.5 h-4.5 border rounded-sm cursor-pointer transition-colors ${
+              className={`w-4 h-4 border rounded-sm cursor-pointer transition-colors ${
                 isActive ? 'bg-[#C9973A] border-[#C9973A]' : 'border-gray-200 hover:border-gray-400'
               }`}
               onMouseEnter={() => setHover([row, col])}
-              onClick={onClose}
+              onClick={() => insertTable(hover[0], hover[1])}
             />
           );
         })}
@@ -45,12 +55,15 @@ const TablePicker: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
+// ─── Table Button (fixed-position dropdown) ───────────────────────────────────
+
 const TableDropBtn: React.FC = () => {
-  const { open, setOpen, ref } = useDropdown();
+  const { open, setOpen, openDropdown, ref, pos } = useDropdown();
+
   return (
     <div ref={ref} className="relative h-full flex-shrink-0">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => open ? setOpen(false) : openDropdown()}
         className={`flex flex-col items-center justify-center rounded px-1.5 py-0.5 transition-colors min-w-[40px] h-full gap-0
           ${open ? 'bg-[#edebe9] text-[#2b2b2b]' : 'hover:bg-[#f3f2f1] text-[#323130]'}`}
       >
@@ -59,7 +72,10 @@ const TableDropBtn: React.FC = () => {
         <ChevronDown size={8} className="text-gray-400" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-0.5 bg-white border border-gray-200 rounded shadow-xl z-[9999]">
+        <div
+          className="fixed bg-white border border-gray-200 rounded shadow-xl z-[9999]"
+          style={{ top: pos.top, left: pos.left }}
+        >
           <TablePicker onClose={() => setOpen(false)} />
         </div>
       )}
@@ -67,14 +83,16 @@ const TableDropBtn: React.FC = () => {
   );
 };
 
+// ─── Shapes Button ─────────────────────────────────────────────────────────────
+
 const ShapesDropBtn: React.FC = () => {
-  const { open, setOpen, ref } = useDropdown();
-  const shapes = ['□', '◯', '△', '⬡', '→', '☆', '□', '◯'];
+  const { open, setOpen, openDropdown, ref, pos } = useDropdown();
+  const shapes = ['□', '◯', '△', '⬡', '→', '☆', '◇', '⬟'];
 
   return (
     <div ref={ref} className="relative h-full flex-shrink-0">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => open ? setOpen(false) : openDropdown()}
         className={`flex flex-col items-center justify-center rounded px-1.5 py-0.5 transition-colors min-w-[40px] h-full gap-0
           ${open ? 'bg-[#edebe9] text-[#2b2b2b]' : 'hover:bg-[#f3f2f1] text-[#323130]'}`}
       >
@@ -83,11 +101,16 @@ const ShapesDropBtn: React.FC = () => {
         <ChevronDown size={8} className="text-gray-400" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-0.5 bg-white border border-gray-200 rounded shadow-xl z-[9999] p-1.5 w-40">
+        <div
+          className="fixed bg-white border border-gray-200 rounded shadow-xl z-[9999] p-1.5 w-40"
+          style={{ top: pos.top, left: pos.left }}
+        >
           <div className="text-[9px] text-gray-400 mb-1 px-0.5 uppercase font-bold">Recently Used</div>
           <div className="flex gap-1 flex-wrap">
             {shapes.map((s, i) => (
-              <button key={i} onClick={() => setOpen(false)} className="w-7 h-7 text-lg hover:bg-[#f3f2f1] rounded flex items-center justify-center">{s}</button>
+              <button key={i} onClick={() => setOpen(false)} className="w-7 h-7 text-lg hover:bg-[#f3f2f1] rounded flex items-center justify-center">
+                {s}
+              </button>
             ))}
           </div>
         </div>
@@ -95,6 +118,128 @@ const ShapesDropBtn: React.FC = () => {
     </div>
   );
 };
+
+// ─── Picture button (Device + Online) ─────────────────────────────────────────
+
+const PictureBtn: React.FC = () => {
+  const { editorRef } = useEditorContext();
+  const { open, setOpen, openDropdown, ref, pos } = useDropdown();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const insertImageFromFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const src = ev.target?.result as string;
+      if (src && editorRef.current) {
+        editorRef.current.chain().focus().setImage({ src }).run();
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) insertImageFromFile(file);
+    // reset so same file can be picked again
+    e.target.value = '';
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} className="relative h-full flex-shrink-0">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* Split button — main part inserts from device directly */}
+      <div className="flex h-full">
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="flex flex-col items-center justify-center rounded-l px-2 py-0.5 transition-colors min-w-[44px] h-full gap-0 hover:bg-[#f3f2f1] text-[#323130]"
+          title="Insert Picture from Device"
+        >
+          <Image size={20} strokeWidth={1.5} />
+          <span className="text-[10px] mt-0.5">Picture</span>
+        </button>
+        <button
+          onClick={() => open ? setOpen(false) : openDropdown()}
+          className="flex items-center justify-center px-1 hover:bg-[#edebe9] rounded-r text-gray-400 transition-colors h-full border-l border-gray-100"
+          title="Picture options"
+        >
+          <ChevronDown size={8} />
+        </button>
+      </div>
+
+      {open && (
+        <div
+          className="fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] py-1 overflow-hidden"
+          style={{ top: pos.top, left: pos.left, minWidth: 200 }}
+        >
+          <div className="px-3 py-1.5 border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+            Insert Picture
+          </div>
+          <button
+            onClick={() => { fileInputRef.current?.click(); }}
+            className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#f3f2f1] text-[#323130] transition-colors"
+          >
+            <FolderOpen size={15} className="text-amber-600" />
+            <div>
+              <div className="text-[12px] font-medium">From Device</div>
+              <div className="text-[10px] text-gray-400">Browse your computer</div>
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              const url = prompt('Enter image URL:');
+              if (url && editorRef.current) {
+                editorRef.current.chain().focus().setImage({ src: url }).run();
+              }
+              setOpen(false);
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#f3f2f1] text-[#323130] transition-colors"
+          >
+            <Globe2 size={15} className="text-blue-500" />
+            <div>
+              <div className="text-[12px] font-medium">From URL</div>
+              <div className="text-[10px] text-gray-400">Paste an image link</div>
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              // Paste from clipboard
+              navigator.clipboard.read().then(items => {
+                for (const item of items) {
+                  const imageType = item.types.find(t => t.startsWith('image/'));
+                  if (imageType) {
+                    item.getType(imageType).then(blob => {
+                      const file = new File([blob], 'pasted.png', { type: imageType });
+                      insertImageFromFile(file);
+                    });
+                  }
+                }
+              }).catch(() => alert('No image found in clipboard.'));
+              setOpen(false);
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#f3f2f1] text-[#323130] transition-colors"
+          >
+            <Monitor size={15} className="text-teal-600" />
+            <div>
+              <div className="text-[12px] font-medium">From Clipboard</div>
+              <div className="text-[10px] text-gray-400">Paste copied image</div>
+            </div>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── InsertTab ────────────────────────────────────────────────────────────────
 
 const InsertTab: React.FC = () => {
   return (
@@ -111,9 +256,8 @@ const InsertTab: React.FC = () => {
       </RibbonGroup>
 
       <RibbonGroup label="Illustrations">
-        <SplitLargeBtn icon={Image} label="Picture" items={[{ label: 'Device' }, { label: 'Online' }]} />
+        <PictureBtn />
         <ShapesDropBtn />
-        <LargeBtn icon={Monitor} label="Screen" />
       </RibbonGroup>
 
       <RibbonGroup label="Links">

@@ -6,7 +6,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, IndentDecrease, IndentIncrease,
   SortAsc, Pilcrow, ChevronDown,
-  Search, Replace, MousePointer2, Keyboard,
+  Search, Replace, MousePointer2, Keyboard, LayoutTemplate,
   BetweenHorizonalEnd, BetweenVerticalEnd,
 } from 'lucide-react';
 import {
@@ -56,7 +56,7 @@ const ColorPickerBtn: React.FC<{
 
 // ─── HomeTab ─────────────────────────────────────────────────────────────────
 const HomeTab: React.FC = () => {
-  const { isKeyboardOpen, toggleKeyboard, fontLang, setFontLang, fontFamily, setFontFamily, fontSize, setFontSize } = useAppStore();
+  const { isKeyboardOpen, toggleKeyboard, fontLang, setFontLang, fontFamily, setFontFamily, fontSize, setFontSize, setTemplatesOpen } = useAppStore();
   const { getEditor } = useEditorContext();
 
   const currentFonts = fontLang === 'sinhala' ? SINHALA_FONTS : LATIN_FONTS;
@@ -215,6 +215,7 @@ const HomeTab: React.FC = () => {
           <SmallBtn icon={MousePointer2} label="Select" />
         </div>
         <LargeBtn icon={Keyboard} label="Keyboard" onClick={toggleKeyboard} active={isKeyboardOpen} />
+        <LargeBtn icon={LayoutTemplate} label="Templates" onClick={() => setTemplatesOpen(true)} />
       </RibbonGroup>
 
     </div>
