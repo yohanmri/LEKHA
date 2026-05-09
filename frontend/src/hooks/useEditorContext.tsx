@@ -24,8 +24,9 @@ export const EditorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const unregisterEditor = (id: string) => {
+    const wasActive = editorRef.current === editorsMap.current[id];
     delete editorsMap.current[id];
-    if (editorRef.current === editorsMap.current[id]) {
+    if (wasActive) {
       editorRef.current = Object.values(editorsMap.current)[0] || null;
     }
   };

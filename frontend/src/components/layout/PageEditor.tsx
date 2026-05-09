@@ -25,7 +25,7 @@ interface PageEditorProps {
   index: number;
 }
 
-let singlishBuffer = '';
+// NOTE: singlishBuffer is now a per-editor ref — see useRef below
 
 const toRoman = (num: number): string => {
   if (num <= 0) return num.toString();
@@ -65,6 +65,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const pageData = pages.find(p => p.id === pageId);
   const isSinhala = fontLang === 'sinhala';
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const singlishBufferRef = useRef(''); // Per-instance buffer — fixes multi-page typing bug
   const [isOverflowing, setIsOverflowing] = React.useState(false);
 
   const canvasW = orientation === 'landscape' ? pageSize.heightPx : pageSize.widthPx;
@@ -100,7 +101,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       setActiveEditor(pageId);
     },
     onUpdate: ({ editor }) => {
-      // Check for overflow
+      // Overflow detection: compare the ProseMirror DOM scrollHeight vs available content area
       const dom = editor.view.dom;
       if (dom.scrollHeight > maxContentHeight) {
         setIsOverflowing(true);
@@ -140,30 +141,30 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     if (isMod && !isShift) {
       if (e.key === 'a') {
         // Let TipTap handle select all, but clear buffer
-        singlishBuffer = '';
+        singlishBufferRef.current = '';
       }
       return;
     }
 
     if (['Enter', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Escape'].includes(e.key)) {
-      singlishBuffer = ''; 
+      singlishBufferRef.current = ''; 
       return;
     }
     if (e.key === 'Delete') {
-      singlishBuffer = '';
+      singlishBufferRef.current = '';
       return;
     }
     if (e.key === 'Backspace') {
       const { from, to } = editor.state.selection;
       if (from !== to) {
-        singlishBuffer = '';
+        singlishBufferRef.current = '';
         return;
       }
-      if (singlishBuffer.length > 0) {
+      if (singlishBufferRef.current.length > 0) {
         e.preventDefault();
-        const currentResult = transliterate(singlishBuffer);
-        singlishBuffer = singlishBuffer.slice(0, -1);
-        const newResult = transliterate(singlishBuffer);
+        const currentResult = transliterate(singlishBufferRef.current);
+        singlishBufferRef.current = singlishBufferRef.current.slice(0, -1);
+        const newResult = transliterate(singlishBufferRef.current);
         if (currentResult.length > 0) {
           const deleteFrom = Math.max(0, editor.state.selection.from - currentResult.length);
           editor.commands.deleteRange({ from: deleteFrom, to: editor.state.selection.from });
@@ -178,11 +179,11 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     const flushChars = [' ', '.', ',', '!', '?', '(', ')', ':', ';', '"', "'", '[', ']', '{', '}'];
     if (flushChars.includes(e.key)) {
       editor.commands.insertContent(e.key);
-      singlishBuffer = '';
+      singlishBufferRef.current = '';
     } else {
-      const prevResult = transliterate(singlishBuffer);
-      singlishBuffer += e.key;
-      const newResult = transliterate(singlishBuffer);
+      const prevResult = transliterate(singlishBufferRef.current);
+      singlishBufferRef.current += e.key;
+      const newResult = transliterate(singlishBufferRef.current);
       if (prevResult.length > 0) {
         editor.commands.deleteRange({ from: editor.state.selection.from - prevResult.length, to: editor.state.selection.from });
       }

@@ -77,6 +77,8 @@ router.post('/', async (req, res) => {
     th { background: #f3f2f1; font-weight: 700; }
     img { max-width: 100%; }
     ul, ol { padding-left: 1.5em; margin: 0.5em 0; }
+    .lekha-page { page-break-after: always; padding-bottom: 2em; }
+    .lekha-page:last-child { page-break-after: avoid; }
   </style>
 </head>
 <body>${html}</body>

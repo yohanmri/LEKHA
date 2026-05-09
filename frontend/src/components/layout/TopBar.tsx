@@ -11,7 +11,7 @@ import axios from 'axios';
 const API_BASE = 'http://localhost:3001/api';
 
 const TopBar: React.FC = () => {
-  const { documentTitle, setDocumentTitle, saveStatus, setTemplatesOpen } = useAppStore();
+  const { documentTitle, setDocumentTitle, saveStatus, setTemplatesOpen, pages } = useAppStore();
   const { editorRef } = useEditorContext();
   const [isEditing, setIsEditing] = useState(false);
   const [tempTitle, setTempTitle] = useState(documentTitle);
@@ -26,7 +26,13 @@ const TopBar: React.FC = () => {
 
   // ── Export helpers ──────────────────────────────────────────────────────────
 
-  const getEditorHtml = () => editorRef.current?.getHTML() ?? '';
+  // Combine ALL pages' stored content for export
+  const getAllPagesHtml = () => {
+    // Each page content is separated by a page-break div for PDF/HTML exports
+    return pages.map(p => `<div class="lekha-page">${p.content}</div>`).join('\n');
+  };
+
+  const getEditorHtml = () => getAllPagesHtml();
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
