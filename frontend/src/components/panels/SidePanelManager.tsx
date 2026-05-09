@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
-import { X, Search, Loader2, AlertCircle, CheckCircle2, Info, BookOpen, Quote, Trash2, RefreshCw } from 'lucide-react';
+import { X, Search, Loader2, AlertCircle, CheckCircle2, Info, BookOpen, Quote, Trash2, RefreshCw, PlusSquare } from 'lucide-react';
 import lekhaApi from '../../api/lekhaApi';
 import { useEditorContext } from '../../hooks/useEditorContext';
 import { useTableOfContents } from '../../hooks/useTableOfContents';
@@ -341,11 +341,286 @@ const StylesPanel: React.FC = () => {
   );
 };
 
-// ─── References Panel ──────────────────────────────────────────────────────────
+// ─── Figures Panel ────────────────────────────────────────────────────────────
+const FiguresPanel: React.FC = () => {
+  const { figuresConfig, setFiguresConfig, pages, setPages } = useAppStore();
+  const { editorsMap } = useEditorContext();
+  const [isEditingStyle, setIsEditingStyle] = useState(false);
+
+  const hasLofPage = pages.some(p => p.id.startsWith('page-lof-'));
+
+  const TEMPLATES = [
+    { id: 'numbered' as const, label: 'Figure 1 Numbered' },
+    { id: 'classic'  as const, label: 'Classic' },
+    { id: 'modern'   as const, label: 'Modern' },
+    { id: 'minimal'  as const, label: 'Minimal' },
+  ];
+
+  const handleUpdate = () => {
+    const parser = new DOMParser();
+    const figures: { caption: string; pageIndex: number; id: string }[] = [];
+
+    pages.forEach((page, pageIndex) => {
+      if (!page.content || page.id.startsWith('page-lof-') || page.id.startsWith('page-lot-') || page.id.startsWith('page-toc-') || page.id.startsWith('page-ref-')) return;
+      const doc = parser.parseFromString(page.content, 'text/html');
+      const imgs = doc.querySelectorAll('img');
+      imgs.forEach((img) => {
+        const alt = img.getAttribute('alt') || `Figure ${figures.length + 1}`;
+        figures.push({ caption: alt, pageIndex, id: page.id });
+      });
+    });
+
+    const { template, titleText, titleFontSize, showPageNumbers, style } = figuresConfig;
+    const lines = figures.map((f, i) => {
+      const prefix = template === 'numbered' ? `Figure ${i + 1} — ` : '';
+      const dots = template === 'numbered' || template === 'classic' 
+        ? `<span style="flex-grow:1; border-bottom:1px dotted ${style.color}; margin: 0 8px; position:relative; top:-4px;"></span>`
+        : `<span style="flex-grow:1; margin: 0 8px;"></span>`;
+      const pageSpan = showPageNumbers ? `<span>${f.pageIndex + 1}</span>` : '';
+      
+      return `
+        <div style="display:flex; align-items:baseline; font-family:${style.fontFamily}; font-size:${style.fontSize}pt; font-weight:${style.bold ? 'bold' : 'normal'}; color:${style.color}; margin-bottom:8px;">
+          <a href="#${f.id}" style="color:inherit; text-decoration:none; flex-shrink:0;">${prefix}${f.caption}</a>
+          ${dots}
+          ${pageSpan}
+        </div>`;
+    });
+
+    const html = `
+      <div style="padding:40px 60px;font-family:Inter,sans-serif">
+        <h1 style="font-size:${titleFontSize}pt;font-weight:bold;margin-bottom:24px;border-bottom:2px solid #C9973A;padding-bottom:8px">${titleText}</h1>
+        ${lines.length ? lines.join('') : '<p style="color:#aaa;font-style:italic">No figures found in document.</p>'}
+      </div>
+    `;
+
+    const lofPage = pages.find(p => p.id.startsWith('page-lof-'));
+    if (lofPage) {
+      setPages(pages.map(p => p.id === lofPage.id ? { ...p, content: html } : p));
+      const editor = editorsMap.current[lofPage.id];
+      if (editor) editor.commands.setContent(html);
+    } else {
+      setPages([{ id: `page-lof-${Date.now()}`, content: html, title: titleText }, ...pages]);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#F8F9FA] text-gray-800">
+      <div className="flex-1 overflow-y-auto pb-4">
+        <div className="p-3 border-b border-gray-200 bg-white">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Template</p>
+          <div className="grid grid-cols-2 gap-1.5 mb-4">
+            {TEMPLATES.map(t => (
+              <button key={t.id} onClick={() => setFiguresConfig({ template: t.id })}
+                className={`py-1.5 px-2 rounded text-[11px] border-2 transition-all font-medium text-left
+                  ${figuresConfig.template === t.id ? 'border-[#C9973A] bg-amber-50 text-[#C9973A]' : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-white'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-1.5 items-end">
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Title</label>
+                <input value={figuresConfig.titleText} onChange={e => setFiguresConfig({ titleText: e.target.value })}
+                  className="w-full text-[12px] border border-gray-300 rounded px-2 py-1.5 outline-none focus:border-[#C9973A]" />
+              </div>
+              <select value={figuresConfig.titleFontSize} onChange={e => setFiguresConfig({ titleFontSize: e.target.value })}
+                className="text-[12px] border border-gray-300 rounded px-1 py-1.5 outline-none bg-white w-[60px]">
+                {['14','16','18','20','24'].map(s => <option key={s} value={s}>{s}pt</option>)}
+              </select>
+            </div>
+            <label className="flex items-center gap-1.5 text-[11px] text-gray-600 cursor-pointer mt-1">
+              <input type="checkbox" checked={figuresConfig.showPageNumbers} onChange={e => setFiguresConfig({ showPageNumbers: e.target.checked })} className="accent-[#C9973A] w-3.5 h-3.5" />
+              Show page numbers
+            </label>
+          </div>
+        </div>
+
+        <div className="p-3">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">List Item Style</p>
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className={`flex items-center justify-between transition-colors ${isEditingStyle ? 'bg-amber-50' : 'hover:bg-gray-50'}`}>
+              <div className="px-3 py-2 text-[12px] text-gray-700 font-medium">Standard Figure Item</div>
+              <button onClick={() => setIsEditingStyle(!isEditingStyle)} className="p-2 text-gray-400 hover:text-[#C9973A] transition-colors">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+              </button>
+            </div>
+            {isEditingStyle && (
+              <div className="p-3 bg-gray-50 border-t border-gray-100 flex flex-col gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <select value={figuresConfig.style.fontFamily} onChange={e => setFiguresConfig({ style: { ...figuresConfig.style, fontFamily: e.target.value } })}
+                    className="text-[11px] border border-gray-300 rounded px-1.5 py-1 bg-white max-w-[100px] truncate">
+                    {['Inter', 'Arial', 'Times New Roman', 'Georgia', 'Verdana'].map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                  <select value={figuresConfig.style.fontSize} onChange={e => setFiguresConfig({ style: { ...figuresConfig.style, fontSize: e.target.value } })}
+                    className="text-[11px] border border-gray-300 rounded px-1.5 py-1 bg-white w-[50px]">
+                    {['9','10','11','12','13','14'].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button onClick={() => setFiguresConfig({ style: { ...figuresConfig.style, bold: !figuresConfig.style.bold } })}
+                    className={`px-2 py-1 rounded border text-[11px] font-bold ${figuresConfig.style.bold ? 'bg-[#C9973A] text-white border-[#C9973A]' : 'bg-white text-gray-600 border-gray-300'}`}>B</button>
+                  <input type="color" value={figuresConfig.style.color} onChange={e => setFiguresConfig({ style: { ...figuresConfig.style, color: e.target.value } })}
+                    className="w-6 h-6 p-0 border-none rounded cursor-pointer" />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="p-3 border-t border-gray-200 bg-white">
+        <button onClick={handleUpdate}
+          className="w-full flex items-center justify-center gap-2 bg-[#C9973A] hover:bg-[#B08432] text-white text-[11px] font-bold px-3 py-2.5 rounded shadow-sm transition-colors">
+          <RefreshCw size={12} />
+          {hasLofPage ? 'Update List of Figures' : 'Insert List of Figures'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── Tables Panel ─────────────────────────────────────────────────────────────
+const TablesPanel: React.FC = () => {
+  const { tablesConfig, setTablesConfig, pages, setPages } = useAppStore();
+  const { editorsMap } = useEditorContext();
+  const [isEditingStyle, setIsEditingStyle] = useState(false);
+
+  const hasLotPage = pages.some(p => p.id.startsWith('page-lot-'));
+
+  const handleUpdate = () => {
+    const parser = new DOMParser();
+    const tables: { caption: string; pageIndex: number; id: string }[] = [];
+
+    pages.forEach((page, pageIndex) => {
+      if (!page.content || page.id.startsWith('page-lof-') || page.id.startsWith('page-lot-') || page.id.startsWith('page-toc-') || page.id.startsWith('page-ref-')) return;
+      const doc = parser.parseFromString(page.content, 'text/html');
+      const tbls = doc.querySelectorAll('table');
+      tbls.forEach((tbl) => {
+        const firstTh = tbl.querySelector('th');
+        const caption = firstTh?.textContent?.trim() || `Table ${tables.length + 1}`;
+        tables.push({ caption, pageIndex, id: page.id });
+      });
+    });
+
+    const { template, titleText, titleFontSize, showPageNumbers, style } = tablesConfig;
+    const lines = tables.map((t, i) => {
+      const prefix = template === 'numbered' ? `Table ${i + 1} — ` : '';
+      const dots = template === 'numbered' || template === 'classic' 
+        ? `<span style="flex-grow:1; border-bottom:1px dotted ${style.color}; margin: 0 8px; position:relative; top:-4px;"></span>`
+        : `<span style="flex-grow:1; margin: 0 8px;"></span>`;
+      const pageSpan = showPageNumbers ? `<span>${t.pageIndex + 1}</span>` : '';
+      
+      return `
+        <div style="display:flex; align-items:baseline; font-family:${style.fontFamily}; font-size:${style.fontSize}pt; font-weight:${style.bold ? 'bold' : 'normal'}; color:${style.color}; margin-bottom:8px;">
+          <a href="#${t.id}" style="color:inherit; text-decoration:none; flex-shrink:0;">${prefix}${t.caption}</a>
+          ${dots}
+          ${pageSpan}
+        </div>`;
+    });
+
+    const html = `
+      <div style="padding:40px 60px;font-family:Inter,sans-serif">
+        <h1 style="font-size:${titleFontSize}pt;font-weight:bold;margin-bottom:24px;border-bottom:2px solid #C9973A;padding-bottom:8px">${titleText}</h1>
+        ${lines.length ? lines.join('') : '<p style="color:#aaa;font-style:italic">No tables found in document.</p>'}
+      </div>
+    `;
+
+    const lotPage = pages.find(p => p.id.startsWith('page-lot-'));
+    if (lotPage) {
+      setPages(pages.map(p => p.id === lotPage.id ? { ...p, content: html } : p));
+      const editor = editorsMap.current[lotPage.id];
+      if (editor) editor.commands.setContent(html);
+    } else {
+      setPages([{ id: `page-lot-${Date.now()}`, content: html, title: titleText }, ...pages]);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#F8F9FA] text-gray-800">
+      <div className="flex-1 overflow-y-auto pb-4">
+        <div className="p-3 border-b border-gray-200 bg-white">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Template</p>
+          <div className="grid grid-cols-2 gap-1.5 mb-4">
+            {[
+              { id: 'numbered' as const, label: 'Table 1 Numbered' },
+              { id: 'classic'  as const, label: 'Classic' },
+              { id: 'modern'   as const, label: 'Modern' },
+              { id: 'minimal'  as const, label: 'Minimal' },
+            ].map(t => (
+              <button key={t.id} onClick={() => setTablesConfig({ template: t.id })}
+                className={`py-1.5 px-2 rounded text-[11px] border-2 transition-all font-medium text-left
+                  ${tablesConfig.template === t.id ? 'border-[#C9973A] bg-amber-50 text-[#C9973A]' : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-white'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-1.5 items-end">
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Title</label>
+                <input value={tablesConfig.titleText} onChange={e => setTablesConfig({ titleText: e.target.value })}
+                  className="w-full text-[12px] border border-gray-300 rounded px-2 py-1.5 outline-none focus:border-[#C9973A]" />
+              </div>
+              <select value={tablesConfig.titleFontSize} onChange={e => setTablesConfig({ titleFontSize: e.target.value })}
+                className="text-[12px] border border-gray-300 rounded px-1 py-1.5 outline-none bg-white w-[60px]">
+                {['14','16','18','20','24'].map(s => <option key={s} value={s}>{s}pt</option>)}
+              </select>
+            </div>
+            <label className="flex items-center gap-1.5 text-[11px] text-gray-600 cursor-pointer mt-1">
+              <input type="checkbox" checked={tablesConfig.showPageNumbers} onChange={e => setTablesConfig({ showPageNumbers: e.target.checked })} className="accent-[#C9973A] w-3.5 h-3.5" />
+              Show page numbers
+            </label>
+          </div>
+        </div>
+
+        <div className="p-3">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">List Item Style</p>
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className={`flex items-center justify-between transition-colors ${isEditingStyle ? 'bg-amber-50' : 'hover:bg-gray-50'}`}>
+              <div className="px-3 py-2 text-[12px] text-gray-700 font-medium">Standard Table Item</div>
+              <button onClick={() => setIsEditingStyle(!isEditingStyle)} className="p-2 text-gray-400 hover:text-[#C9973A] transition-colors">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+              </button>
+            </div>
+            {isEditingStyle && (
+              <div className="p-3 bg-gray-50 border-t border-gray-100 flex flex-col gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <select value={tablesConfig.style.fontFamily} onChange={e => setTablesConfig({ style: { ...tablesConfig.style, fontFamily: e.target.value } })}
+                    className="text-[11px] border border-gray-300 rounded px-1.5 py-1 bg-white max-w-[100px] truncate">
+                    {['Inter', 'Arial', 'Times New Roman', 'Georgia', 'Verdana'].map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                  <select value={tablesConfig.style.fontSize} onChange={e => setTablesConfig({ style: { ...tablesConfig.style, fontSize: e.target.value } })}
+                    className="text-[11px] border border-gray-300 rounded px-1.5 py-1 bg-white w-[50px]">
+                    {['9','10','11','12','13','14'].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button onClick={() => setTablesConfig({ style: { ...tablesConfig.style, bold: !tablesConfig.style.bold } })}
+                    className={`px-2 py-1 rounded border text-[11px] font-bold ${tablesConfig.style.bold ? 'bg-[#C9973A] text-white border-[#C9973A]' : 'bg-white text-gray-600 border-gray-300'}`}>B</button>
+                  <input type="color" value={tablesConfig.style.color} onChange={e => setTablesConfig({ style: { ...tablesConfig.style, color: e.target.value } })}
+                    className="w-6 h-6 p-0 border-none rounded cursor-pointer" />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="p-3 border-t border-gray-200 bg-white">
+        <button onClick={handleUpdate}
+          className="w-full flex items-center justify-center gap-2 bg-[#C9973A] hover:bg-[#B08432] text-white text-[11px] font-bold px-3 py-2.5 rounded shadow-sm transition-colors">
+          <RefreshCw size={12} />
+          {hasLotPage ? 'Update List of Tables' : 'Insert List of Tables'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const ReferencesPanel: React.FC = () => {
-  const { references, addReference, deleteReference } = useAppStore();
-  const { getEditor } = useEditorContext();
+  const { references, addReference, deleteReference, referencesConfig, setReferencesConfig, pages, setPages } = useAppStore();
+  const { getEditor, editorsMap } = useEditorContext();
   const [newRef, setNewRef] = useState('');
+  const [isEditingStyle, setIsEditingStyle] = useState(false);
+
+  const hasRefPage = pages.some(p => p.id.startsWith('page-ref-'));
 
   const handleAdd = () => {
     if (!newRef.trim()) return;
@@ -353,69 +628,120 @@ const ReferencesPanel: React.FC = () => {
     setNewRef('');
   };
 
-  const insertCitation = (index: number) => {
+  const insertCitation = (idx: number) => {
     const editor = getEditor();
-    if (editor) {
-      editor.chain().focus().insertContent(`[${index + 1}]`).run();
+    if (!editor) return;
+    const label = referencesConfig.template === 'ieee' ? `[${idx + 1}]` : referencesConfig.template === 'apa' ? `(${idx + 1})` : `${idx + 1}.`;
+    editor.chain().focus().insertContent(label).run();
+  };
+
+  const handleUpdate = () => {
+    const { template, titleText, titleFontSize, style } = referencesConfig;
+    const rows = references.map((r, i) => {
+      const label = template === 'ieee' ? `[${i + 1}]` : template === 'apa' ? `(${i + 1})` : `${i + 1}.`;
+      return `<div style="padding:4px 0; font-family:${style.fontFamily}; font-size:${style.fontSize}pt; font-weight:${style.bold ? 'bold' : 'normal'}; color:${style.color}; display:flex; gap:8px">
+        <span style="min-width:32px; font-weight:bold; color:#C9973A">${label}</span>
+        <span style="flex:1">${r.text}</span>
+      </div>`;
+    }).join('');
+
+    const html = `<div style="padding:40px 60px; font-family:Inter,sans-serif">
+      <h1 style="font-size:${titleFontSize}pt; font-weight:bold; margin-bottom:24px; border-bottom:2px solid #C9973A; padding-bottom:8px">${titleText}</h1>
+      ${rows || '<p style="color:#aaa;font-style:italic">No references added yet.</p>'}
+    </div>`;
+
+    const refPage = pages.find(p => p.id.startsWith('page-ref-'));
+    if (refPage) {
+      setPages(pages.map(p => p.id === refPage.id ? { ...p, content: html } : p));
+      const editor = editorsMap.current[refPage.id];
+      if (editor) editor.commands.setContent(html);
+    } else {
+      setPages([{ id: `page-ref-${Date.now()}`, content: html, title: titleText }, ...pages]);
     }
   };
 
-  const generateBibliography = () => {
-    const editor = getEditor();
-    if (!editor || references.length === 0) return;
-    
-    let html = '<h3>References</h3><ol>';
-    references.forEach(ref => {
-      html += `<li>${ref.text}</li>`;
-    });
-    html += '</ol><p></p>';
-    
-    editor.chain().focus().insertContent(html).run();
-  };
-
   return (
-    <div className="flex flex-col gap-4 p-4 h-full">
-      <div>
-        <p className="text-[11px] text-gray-500 mb-2">Add a new reference (IEEE format recommended):</p>
-        <textarea
-          value={newRef}
-          onChange={e => setNewRef(e.target.value)}
-          placeholder="e.g. J. K. Author, Title of chapter, in Title of Book..."
-          className="w-full text-[12px] border border-gray-200 rounded p-2 outline-none focus:border-[#C9973A] transition-colors bg-white min-h-[60px] resize-none"
-        />
-        <button
-          onClick={handleAdd}
-          className="mt-2 flex items-center justify-center gap-1.5 bg-[#C9973A] hover:bg-amber-600 text-white rounded px-3 py-1.5 text-[11px] font-medium transition-colors w-full"
-        >
-          <BookOpen size={13} /> Add Reference
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
-        {references.length === 0 ? (
-          <p className="text-[11px] text-gray-400 text-center italic mt-4">No references added yet.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Reference List</span>
-              <button 
-                onClick={generateBibliography}
-                className="text-[10px] text-[#C9973A] hover:underline font-semibold"
-              >
-                Insert Bibliography
+    <div className="flex flex-col h-full bg-[#F8F9FA] text-gray-800">
+      <div className="flex-1 overflow-y-auto pb-4">
+        
+        <div className="p-3 border-b border-gray-200 bg-white">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Bibliography Style</p>
+          <div className="grid grid-cols-3 gap-1 mb-4">
+            {(['ieee', 'apa', 'mla'] as const).map(s => (
+              <button key={s} onClick={() => setReferencesConfig({ template: s })}
+                className={`py-1.5 rounded text-[11px] border transition-all font-bold uppercase
+                  ${referencesConfig.template === s ? 'bg-[#C9973A] text-white border-[#C9973A]' : 'bg-white border-gray-300 text-gray-600'}`}>
+                {s}
               </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-1.5 items-end">
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Title</label>
+                <input value={referencesConfig.titleText} onChange={e => setReferencesConfig({ titleText: e.target.value })}
+                  className="w-full text-[12px] border border-gray-300 rounded px-2 py-1.5 outline-none focus:border-[#C9973A]" />
+              </div>
+              <select value={referencesConfig.titleFontSize} onChange={e => setReferencesConfig({ titleFontSize: e.target.value })}
+                className="text-[12px] border border-gray-300 rounded px-1 py-1.5 outline-none bg-white w-[60px]">
+                {['14','16','18','20','24'].map(s => <option key={s} value={s}>{s}pt</option>)}
+              </select>
             </div>
+            
+            <button onClick={() => setIsEditingStyle(!isEditingStyle)} className="flex items-center gap-1.5 text-[10px] text-[#C9973A] font-semibold hover:underline mt-1">
+              {isEditingStyle ? 'Close Style Settings' : 'Edit Bibliography Item Style'}
+            </button>
+
+            {isEditingStyle && (
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded mt-1 flex flex-col gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <select value={referencesConfig.style.fontFamily} onChange={e => setReferencesConfig({ style: { ...referencesConfig.style, fontFamily: e.target.value } })}
+                    className="text-[11px] border border-gray-300 rounded px-1.5 py-1 bg-white max-w-[100px] truncate">
+                    {['Inter', 'Arial', 'Times New Roman', 'Georgia', 'Verdana'].map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                  <select value={referencesConfig.style.fontSize} onChange={e => setReferencesConfig({ style: { ...referencesConfig.style, fontSize: e.target.value } })}
+                    className="text-[11px] border border-gray-300 rounded px-1.5 py-1 bg-white w-[50px]">
+                    {['9','10','11','12','13','14'].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button onClick={() => setReferencesConfig({ style: { ...referencesConfig.style, bold: !referencesConfig.style.bold } })}
+                    className={`px-2 py-1 rounded border text-[11px] font-bold ${referencesConfig.style.bold ? 'bg-[#C9973A] text-white border-[#C9973A]' : 'bg-white text-gray-600 border-gray-300'}`}>B</button>
+                  <input type="color" value={referencesConfig.style.color} onChange={e => setReferencesConfig({ style: { ...referencesConfig.style, color: e.target.value } })}
+                    className="w-6 h-6 p-0 border-none rounded cursor-pointer" />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-3 border-b border-gray-200 bg-white">
+          <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Add New Source</p>
+          <div className="flex flex-col gap-2">
+            <textarea
+              placeholder="Enter reference text (e.g. Smith, J. (2021). The Book.)"
+              value={newRef}
+              onChange={e => setNewRef(e.target.value)}
+              className="w-full h-20 text-[11px] border border-gray-300 rounded p-2 outline-none focus:border-[#C9973A] resize-none"
+            />
+            <button onClick={handleAdd} className="bg-[#C9973A] hover:bg-[#B08432] text-white text-[11px] font-bold py-2 rounded transition-colors flex items-center justify-center gap-2">
+              <PlusSquare size={13} /> Add Source
+            </button>
+          </div>
+        </div>
+
+        <div className="p-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Source Library ({references.length})</p>
+          </div>
+          <div className="flex flex-col gap-2">
             {references.map((ref, index) => (
               <div key={ref.id} className="bg-white border border-gray-100 rounded p-2.5 shadow-sm group">
                 <div className="flex gap-2">
                   <span className="text-[11px] font-bold text-gray-500">[{index + 1}]</span>
-                  <p className="text-[11px] text-gray-700 flex-1">{ref.text}</p>
+                  <p className="text-[11px] text-gray-700 flex-1 leading-relaxed">{ref.text}</p>
                 </div>
-                <div className="flex justify-end gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={() => insertCitation(index)}
-                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-[#1A7A6E] hover:bg-[#f0faf8] rounded transition-colors"
-                  >
+                <div className="flex justify-end gap-1 mt-2 border-t border-gray-50 pt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => insertCitation(index)} className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold text-[#C9973A] hover:bg-amber-50 rounded transition-colors">
                     <Quote size={10} /> Insert Citation
                   </button>
                   <button 
@@ -427,8 +753,16 @@ const ReferencesPanel: React.FC = () => {
                 </div>
               </div>
             ))}
-          </div>
-        )}
+        </div>
+      </div>
+      </div>
+
+      <div className="p-3 border-t border-gray-200 bg-white">
+        <button onClick={handleUpdate} disabled={references.length === 0}
+          className="w-full flex items-center justify-center gap-2 bg-[#C9973A] hover:bg-[#B08432] disabled:opacity-40 text-white text-[11px] font-bold px-3 py-2.5 rounded shadow-sm transition-colors">
+          <RefreshCw size={12} />
+          {hasRefPage ? 'Update Bibliography Page' : 'Insert Bibliography Page'}
+        </button>
       </div>
     </div>
   );
@@ -443,8 +777,10 @@ const SidePanelManager: React.FC = () => {
     synonyms: 'Synonyms',
     grammar: 'Grammar Checker',
     dialect: 'Dialect Converter',
-    references: 'Manage References',
-    toc: 'Styles',
+    references: 'Bibliography & Citations',
+    toc: 'Table of Contents Style',
+    figures: 'List of Figures Style',
+    tables: 'List of Tables Style',
   };
 
   return (
@@ -456,6 +792,8 @@ const SidePanelManager: React.FC = () => {
         {sidePanel === 'dialect'    && <DialectPanel />}
         {sidePanel === 'references' && <ReferencesPanel />}
         {sidePanel === 'toc'        && <StylesPanel />}
+        {sidePanel === 'figures'    && <FiguresPanel />}
+        {sidePanel === 'tables'     && <TablesPanel />}
       </div>
     </div>
   );

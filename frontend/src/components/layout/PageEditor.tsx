@@ -53,6 +53,24 @@ const toAlpha = (num: number): string => {
   return str;
 };
 
+const EDITOR_EXTENSIONS = [
+  StarterKit,
+  FontFamily,
+  TextStyle,
+  Color,
+  Highlight.configure({ multicolor: true }),
+  TextAlign.configure({ types: ['heading', 'paragraph'] }),
+  Subscript,
+  Superscript,
+  Image.configure({ inline: false, allowBase64: true }),
+  Table.configure({ resizable: true }),
+  TableRow,
+  TableHeader,
+  TableCell,
+  Placeholder.configure({ placeholder: 'මෙතැන ටයිප් කරන්න...' }),
+  CharacterCount,
+];
+
 const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const {
     pages, updatePageTitle, updatePageContent, deletePage, duplicatePage, movePage, addPage,
@@ -67,7 +85,6 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const isSinhala = fontLang === 'sinhala';
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const singlishBufferRef = useRef(''); // Per-instance buffer — fixes multi-page typing bug
-  const [isOverflowing, setIsOverflowing] = React.useState(false);
 
   const canvasW = orientation === 'landscape' ? pageSize.heightPx : pageSize.widthPx;
   const canvasH = orientation === 'landscape' ? pageSize.widthPx : pageSize.heightPx;
@@ -75,24 +92,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   const maxContentHeight = canvasH - margins.top - margins.bottom;
 
   const editor = useEditor({
-    extensions: [
-      StarterKit,
-      FontFamily,
-      TextStyle,
-      Color,
-      Highlight.configure({ multicolor: true }),
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Subscript,
-      Superscript,
-      Image.configure({ inline: false, allowBase64: true }),
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      Placeholder.configure({ placeholder: 'මෙතැන ටයිප් කරන්න...' }),
-      CharacterCount,
-      Link.configure({ openOnClick: false, HTMLAttributes: { target: null } }),
-    ],
+    extensions: EDITOR_EXTENSIONS,
     content: pageData?.content || '',
     editorProps: {
       attributes: {
@@ -137,10 +137,60 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
     onUpdate: ({ editor }) => {
       // Overflow detection: compare the ProseMirror DOM scrollHeight vs available content area
       const dom = editor.view.dom;
+      
       if (dom.scrollHeight > maxContentHeight) {
-        setIsOverflowing(true);
-      } else {
-        setIsOverflowing(false);
+        // AUTOMATIC FLOW: Move last node(s) to the next page
+        const lastNode = editor.state.doc.lastChild;
+        if (lastNode) {
+          const nodeHtml = editor.view.dom.lastElementChild?.outerHTML || '';
+          const nodeSize = lastNode.nodeSize;
+          const pos = editor.state.doc.content.size - nodeSize;
+
+          // Check if selection is in the node being moved
+          const selection = editor.state.selection;
+          const isSelectionInMovedNode = selection.from > pos;
+          let offsetInNode = 0;
+          if (isSelectionInMovedNode) {
+            offsetInNode = selection.from - pos;
+          }
+
+          // Delete from current
+          editor.commands.deleteRange({ from: pos, to: editor.state.doc.content.size });
+
+          // Move to next page
+          const nextPageIndex = index + 1;
+          if (nextPageIndex < pages.length) {
+            const nextPageId = pages[nextPageIndex].id;
+            const nextEditor = editorsMap.current[nextPageId];
+            if (nextEditor) {
+              nextEditor.commands.insertContentAt(0, nodeHtml);
+              if (isSelectionInMovedNode) {
+                // Focus next editor and set selection
+                setTimeout(() => {
+                  nextEditor.commands.focus();
+                  nextEditor.commands.setTextSelection(offsetInNode);
+                }, 10);
+              }
+            } else {
+              // Fallback: update store if next editor not ready
+              const nextPageContent = nodeHtml + pages[nextPageIndex].content;
+              updatePageContent(nextPageId, nextPageContent);
+            }
+          } else {
+            // Create new page with this content
+            const newId = `page-${Date.now()}`;
+            // Use setPages to add the page with initial content
+            const newPage = { id: newId, content: nodeHtml, title: '' };
+            const newPages = [...pages];
+            newPages.splice(index + 1, 0, newPage);
+            setPages(newPages);
+
+            if (isSelectionInMovedNode) {
+              // We need to wait for the new editor to mount and register
+              // This is handled by focus management elsewhere or we can use a temporary global state
+            }
+          }
+        }
       }
 
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -294,7 +344,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       </div>
 
       <div
-        className={`bg-white shadow-lg relative flex flex-col overflow-hidden transition-shadow duration-300 ${isOverflowing ? 'ring-2 ring-red-500 ring-offset-4 ring-offset-red-50 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : ''}`}
+        className="bg-white shadow-lg relative flex flex-col overflow-hidden transition-shadow duration-300"
         onClick={() => editor?.commands.focus()}
         style={{
           width: canvasW,
@@ -357,21 +407,6 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
 
         {/* Page Number Overlay */}
         {getPageNumberDisplay()}
-
-        {/* Smart Overflow Warning */}
-        {isOverflowing && (
-          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-red-50 to-transparent flex items-center justify-center pointer-events-none z-20">
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOverflow();
-              }}
-              className="pointer-events-auto flex items-center gap-2 bg-red-600 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-lg hover:bg-red-700 transition-all transform hover:scale-105"
-            >
-              <PlusSquare size={14} /> Page Overflowing: Add New Page
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

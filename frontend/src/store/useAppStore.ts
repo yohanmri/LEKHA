@@ -68,6 +68,23 @@ export interface TocConfig {
   };
 }
 
+export interface FiguresTablesConfig {
+  template: TocTemplate;
+  titleText: string;
+  titleFontSize: string;
+  showPageNumbers: boolean;
+  style: TocLevelStyle;
+}
+
+export type ReferencesTemplate = 'ieee' | 'apa' | 'mla';
+
+export interface ReferencesConfig {
+  template: ReferencesTemplate;
+  titleText: string;
+  titleFontSize: string;
+  style: TocLevelStyle;
+}
+
 export interface PageSize { name: PageSizeName; widthPx: number; heightPx: number; }
 
 // Page sizes at 96 DPI (1cm = 37.8px)
@@ -111,9 +128,18 @@ interface AppState {
   pageNumberConfig: PageNumberConfig;
   setPageNumberConfig: (config: Partial<PageNumberConfig>) => void;
 
-  // TOC
+  // TOC, Figures, Tables, References Configs
   tocConfig: TocConfig;
   setTocConfig: (config: Partial<TocConfig>) => void;
+  
+  figuresConfig: FiguresTablesConfig;
+  setFiguresConfig: (config: Partial<FiguresTablesConfig>) => void;
+  
+  tablesConfig: FiguresTablesConfig;
+  setTablesConfig: (config: Partial<FiguresTablesConfig>) => void;
+  
+  referencesConfig: ReferencesConfig;
+  setReferencesConfig: (config: Partial<ReferencesConfig>) => void;
 
   // References
   references: Reference[];
@@ -123,8 +149,8 @@ interface AppState {
   // Tab / panel state
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  sidePanel: 'synonyms' | 'grammar' | 'dialect' | 'references' | 'toc' | null;
-  setSidePanel: (panel: 'synonyms' | 'grammar' | 'dialect' | 'references' | 'toc' | null) => void;
+  sidePanel: 'synonyms' | 'grammar' | 'dialect' | 'references' | 'toc' | 'figures' | 'tables' | null;
+  setSidePanel: (panel: 'synonyms' | 'grammar' | 'dialect' | 'references' | 'toc' | 'figures' | 'tables' | null) => void;
 
   // UI toggles
   isKeyboardOpen: boolean;
@@ -254,6 +280,32 @@ export const useAppStore = create<AppState>((set) => ({
     },
   },
   setTocConfig: (config) => set((state) => ({ tocConfig: { ...state.tocConfig, ...config } })),
+
+  figuresConfig: {
+    template: 'numbered',
+    titleText: 'List of Figures',
+    titleFontSize: '18',
+    showPageNumbers: true,
+    style: { fontFamily: 'Inter', fontSize: '11', bold: false, color: '#333333' },
+  },
+  setFiguresConfig: (config) => set((state) => ({ figuresConfig: { ...state.figuresConfig, ...config } })),
+
+  tablesConfig: {
+    template: 'numbered',
+    titleText: 'List of Tables',
+    titleFontSize: '18',
+    showPageNumbers: true,
+    style: { fontFamily: 'Inter', fontSize: '11', bold: false, color: '#333333' },
+  },
+  setTablesConfig: (config) => set((state) => ({ tablesConfig: { ...state.tablesConfig, ...config } })),
+
+  referencesConfig: {
+    template: 'ieee',
+    titleText: 'References',
+    titleFontSize: '18',
+    style: { fontFamily: 'Inter', fontSize: '11', bold: false, color: '#333333' },
+  },
+  setReferencesConfig: (config) => set((state) => ({ referencesConfig: { ...state.referencesConfig, ...config } })),
 
   references: [],
   addReference: (text) => set((state) => ({ 
