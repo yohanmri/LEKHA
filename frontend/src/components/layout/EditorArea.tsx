@@ -27,6 +27,7 @@ const EditorArea: React.FC = () => {
   const {
     setSaveStatus, fontLang, fontFamily, fontSize, zoomLevel,
     pageSize, orientation, marginPreset,
+    pageBackgroundColor, pageBorderStyle, pageBorderColor, pageBorderWidth
   } = useAppStore();
   const { editorRef } = useEditorContext();
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -210,6 +211,10 @@ const EditorArea: React.FC = () => {
             fontFamily: fontFamily,
             fontSize: `${fontSize}pt`,
             boxSizing: 'border-box',
+            backgroundColor: pageBackgroundColor,
+            borderStyle: pageBorderStyle,
+            borderColor: pageBorderColor,
+            borderWidth: pageBorderStyle !== 'none' ? pageBorderWidth : '0px',
           }}
         >
           <EditorContent editor={editor} />

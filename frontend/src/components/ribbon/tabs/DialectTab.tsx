@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   RefreshCw, Globe2, BookMarked, MapPin,
-  Languages, PanelRightOpen, SlidersHorizontal
+  Languages, PanelRightOpen, SlidersHorizontal, Sparkles
 } from 'lucide-react';
 import { RibbonGroup, SinhalaBtn, LargeBtn, DropBtn, SmallBtn } from '../RibbonComponents';
 import { useAppStore } from '../../../store/useAppStore';
@@ -34,6 +34,10 @@ const DialectTab: React.FC = () => {
           <SmallBtn icon={Languages} label="Transliterate" />
         </div>
         <LargeBtn icon={SlidersHorizontal} label="Settings" />
+      </RibbonGroup>
+
+      <RibbonGroup label="AI Assistant">
+        <LargeBtn icon={Sparkles} label="Auto Converter" color="#7C3AED" />
       </RibbonGroup>
     </div>
   );

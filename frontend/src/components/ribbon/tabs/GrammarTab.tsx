@@ -1,7 +1,8 @@
 import React from 'react';
 import {
   SpellCheck, MessageSquare, ChevronLeft, ChevronRight,
-  Settings, CheckCircle2, AlertCircle, RefreshCw, PanelRightOpen
+  Settings, CheckCircle2, AlertCircle, RefreshCw, PanelRightOpen,
+  Sparkles
 } from 'lucide-react';
 import { RibbonGroup, SinhalaBtn, LargeBtn, SmallBtn, DropBtn } from '../RibbonComponents';
 import { useAppStore } from '../../../store/useAppStore';
@@ -34,6 +35,10 @@ const GrammarTab: React.FC = () => {
           <DropBtn label="High Sensitivity" items={[]} />
         </div>
         <LargeBtn icon={RefreshCw} label="Re-check" />
+      </RibbonGroup>
+
+      <RibbonGroup label="AI Assistant">
+        <LargeBtn icon={Sparkles} label="Auto Corrector" color="#7C3AED" />
       </RibbonGroup>
     </div>
   );

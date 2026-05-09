@@ -2,6 +2,7 @@ import React from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import HomeTab from '../ribbon/tabs/HomeTab';
 import InsertTab from '../ribbon/tabs/InsertTab';
+import DesignTab from '../ribbon/tabs/DesignTab';
 import LayoutTab from '../ribbon/tabs/LayoutTab';
 import ReferencesTab from '../ribbon/tabs/ReferencesTab';
 import SynonymsTab from '../ribbon/tabs/SynonymsTab';
@@ -14,7 +15,7 @@ const Ribbon: React.FC = () => {
   const { activeTab, setActiveTab } = useAppStore();
 
   const tabs = [
-    'Home', 'Insert', 'Layout', 'References',
+    'Home', 'Insert', 'Design', 'Layout', 'References',
     'Synonyms', 'Grammar', 'Dialect',
     'Review', 'View'
   ];
@@ -25,6 +26,7 @@ const Ribbon: React.FC = () => {
     switch (activeTab.toUpperCase()) {
       case 'HOME': return <HomeTab />;
       case 'INSERT': return <InsertTab />;
+      case 'DESIGN': return <DesignTab />;
       case 'LAYOUT': return <LayoutTab />;
       case 'REFERENCES': return <ReferencesTab />;
       case 'SYNONYMS': return <SynonymsTab />;

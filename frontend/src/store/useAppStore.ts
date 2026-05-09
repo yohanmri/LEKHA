@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type PageSizeName = 'A4' | 'A3' | 'A5' | 'Letter' | 'Legal';
+export type PageSizeName = 'A4' | 'A3' | 'A5' | 'Letter' | 'Legal' | 'Custom';
 export type OrientationType = 'portrait' | 'landscape';
 export type MarginPreset = 'normal' | 'narrow' | 'wide' | 'moderate';
 
@@ -52,6 +52,20 @@ interface AppState {
   marginPreset: MarginPreset;
   setMarginPreset: (p: MarginPreset) => void;
 
+  // Page Custom Size
+  isCustomPageSize: boolean;
+  setCustomPageSize: (widthPx: number, heightPx: number) => void;
+
+  // Page Design
+  pageBackgroundColor: string;
+  setPageBackgroundColor: (color: string) => void;
+  pageBorderStyle: string;
+  setPageBorderStyle: (style: string) => void;
+  pageBorderColor: string;
+  setPageBorderColor: (color: string) => void;
+  pageBorderWidth: string;
+  setPageBorderWidth: (width: string) => void;
+
   // Font / language settings (shared between ribbon and editor)
   fontLang: 'sinhala' | 'latin';
   setFontLang: (lang: 'sinhala' | 'latin') => void;
@@ -89,11 +103,23 @@ export const useAppStore = create<AppState>((set) => ({
 
   // Page layout defaults
   pageSize: PAGE_SIZES.A4,
-  setPageSize: (name) => set({ pageSize: PAGE_SIZES[name] }),
+  setPageSize: (name) => set({ pageSize: name === 'Custom' ? { name: 'Custom', widthPx: 794, heightPx: 1123 } : PAGE_SIZES[name], isCustomPageSize: name === 'Custom' }),
   orientation: 'portrait',
   setOrientation: (o) => set({ orientation: o }),
   marginPreset: 'normal',
   setMarginPreset: (p) => set({ marginPreset: p }),
+
+  isCustomPageSize: false,
+  setCustomPageSize: (widthPx, heightPx) => set({ pageSize: { name: 'Custom', widthPx, heightPx }, isCustomPageSize: true }),
+
+  pageBackgroundColor: '#FFFFFF',
+  setPageBackgroundColor: (color) => set({ pageBackgroundColor: color }),
+  pageBorderStyle: 'none',
+  setPageBorderStyle: (style) => set({ pageBorderStyle: style }),
+  pageBorderColor: '#000000',
+  setPageBorderColor: (color) => set({ pageBorderColor: color }),
+  pageBorderWidth: '1px',
+  setPageBorderWidth: (width) => set({ pageBorderWidth: width }),
 
   // Font defaults
   fontLang: 'sinhala',

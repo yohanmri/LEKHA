@@ -1,7 +1,8 @@
 import React from 'react';
 import {
   Search, PanelRightOpen, RefreshCw, SlidersHorizontal,
-  FileText, Languages, BookOpen, Lightbulb, Globe2
+  FileText, Languages, BookOpen, Lightbulb, Globe2,
+  Sparkles, Wand2
 } from 'lucide-react';
 import { RibbonGroup, SinhalaBtn, LargeBtn, DropBtn, SmallBtn } from '../RibbonComponents';
 import { useAppStore } from '../../../store/useAppStore';
@@ -34,6 +35,11 @@ const SynonymsTab: React.FC = () => {
           <SmallBtn icon={Lightbulb} label="Smart" />
           <SmallBtn icon={SlidersHorizontal} label="Options" />
         </div>
+      </RibbonGroup>
+
+      <RibbonGroup label="AI Assistant">
+        <LargeBtn icon={Sparkles} label="Auto Formal" color="#7C3AED" />
+        <LargeBtn icon={Wand2} label="Auto Aesthetic" color="#E11D48" />
       </RibbonGroup>
     </div>
   );

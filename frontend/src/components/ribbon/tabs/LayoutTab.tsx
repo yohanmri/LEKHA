@@ -15,7 +15,7 @@ const PAGE_SIZE_ICONS: Record<string, string> = {
 };
 
 const PageSizeBtn: React.FC = () => {
-  const { pageSize, setPageSize } = useAppStore();
+  const { pageSize, setPageSize, isCustomPageSize, setCustomPageSize } = useAppStore();
   const { open, setOpen, openDropdown, ref, pos } = useDropdown();
 
   return (
@@ -58,6 +58,38 @@ const PageSizeBtn: React.FC = () => {
               </button>
             );
           })}
+          <div className="border-t border-gray-100 my-1" />
+          <button
+            onClick={() => { setPageSize('Custom'); }}
+            className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${pageSize.name === 'Custom' ? 'bg-amber-50 text-amber-700' : 'hover:bg-[#f3f2f1] text-[#323130]'}`}
+          >
+            <span className="text-lg">📏</span>
+            <div>
+              <div className="text-[12px] font-semibold">Custom Size</div>
+              <div className="text-[10px] text-gray-400">Specify width & height</div>
+            </div>
+            {pageSize.name === 'Custom' && <div className="ml-auto w-2 h-2 rounded-full bg-amber-500" />}
+          </button>
+          {pageSize.name === 'Custom' && (
+            <div className="px-3 py-2 bg-gray-50 flex items-center gap-2 border-t border-gray-100">
+              <input 
+                type="number" step="0.1"
+                className="w-16 h-7 text-[11px] border border-gray-300 rounded px-1.5 outline-none focus:border-[#C9973A]" 
+                placeholder="W (cm)" 
+                defaultValue={(pageSize.widthPx / 37.8).toFixed(1)}
+                onBlur={(e) => setCustomPageSize(parseFloat(e.target.value || '21') * 37.8, pageSize.heightPx)}
+              />
+              <span className="text-[10px] font-bold text-gray-400">×</span>
+              <input 
+                type="number" step="0.1"
+                className="w-16 h-7 text-[11px] border border-gray-300 rounded px-1.5 outline-none focus:border-[#C9973A]" 
+                placeholder="H (cm)"
+                defaultValue={(pageSize.heightPx / 37.8).toFixed(1)}
+                onBlur={(e) => setCustomPageSize(pageSize.widthPx, parseFloat(e.target.value || '29.7') * 37.8)}
+              />
+              <span className="text-[10px] text-gray-400 font-medium">cm</span>
+            </div>
+          )}
         </div>
       )}
     </div>
