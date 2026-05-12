@@ -18,6 +18,8 @@ const SYNONYMS_DB = {
   'great': ['ශ්‍රේෂ්ඨ', 'විශිෂ්ට', 'ඉහළ', 'හොඳ'],
 };
 
+
+
 /**
  * POST /api/synonyms
  * Body: { word: "ගෙදර" }

@@ -91,6 +91,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
 
   // ── Dialect ghost-text suggestion state ─────────────────────────────────
   const [dialectSuggestion, setDialectSuggestion] = useState<string | null>(null);
+  const [suggestionCoords, setSuggestionCoords] = useState<{top: number, left: number} | null>(null);
   const dialectCurrentWordRef = useRef(''); // The word at cursor when suggestion was made
   const dialectFromRef = useRef(0);         // Start pos of that word in the document
   // Use a ref so the onUpdate closure always reads the latest value without re-creating the editor
@@ -258,14 +259,33 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
             dialectCurrentWordRef.current = currentWord;
             dialectFromRef.current = from - currentWord.length;
             setDialectSuggestion(suggestion);
+            
+            try {
+              // Calculate screen coordinates for the cursor
+              const coords = editor.view.coordsAtPos(from);
+              const parentDom = editor.view.dom.parentElement;
+              if (parentDom) {
+                const rect = parentDom.getBoundingClientRect();
+                // Position above the cursor (subtracting approx popup height)
+                setSuggestionCoords({
+                  top: coords.top - rect.top - 28,
+                  left: coords.right - rect.left
+                });
+              }
+            } catch (e) {
+              setSuggestionCoords(null);
+            }
           } else {
             setDialectSuggestion(null);
+            setSuggestionCoords(null);
           }
         } else {
           setDialectSuggestion(null);
+          setSuggestionCoords(null);
         }
       } else {
         setDialectSuggestion(null);
+        setSuggestionCoords(null);
       }
 
     },
@@ -359,7 +379,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
       }
       editor.commands.insertContent(newResult);
     }
-  }, [isSinhala, editor, index, addPage]);
+  }, [isSinhala, editor, index, addPage, dialectSuggestion]);
 
   const handleOverflow = useCallback(() => {
     if (!editor) return;
@@ -412,7 +432,7 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
   };
 
   return (
-    <div id={pageId} className="flex flex-col items-center mb-4 w-full" onKeyDown={(e) => handleKeyDown(e.nativeEvent)}>
+    <div id={pageId} className="flex flex-col items-center mb-4 w-full" onKeyDownCapture={(e) => handleKeyDown(e.nativeEvent)}>
 
       {/* Canva-style Page Toolbar (Detached) */}
       <div className="flex items-center justify-between bg-[#F8F9FA] px-3 py-1.5 rounded-t shadow-sm mb-1" style={{ width: canvasW }}>
@@ -471,46 +491,39 @@ const PageEditor: React.FC<PageEditorProps> = ({ pageId, index }) => {
         <div className="flex-1 cursor-text relative">
           <EditorContent editor={editor} />
           {/* Ghost text suggestion overlay — appears inline after cursor word */}
-          {dialectSuggestion && (
+          {dialectSuggestion && suggestionCoords && (
             <div
-              className="pointer-events-none absolute inset-0 flex items-start"
-              style={{ paddingTop: 0 }}
+              className="pointer-events-none absolute"
+              style={{
+                top: `${suggestionCoords.top}px`,
+                left: `${suggestionCoords.left}px`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '2px 4px',
+                zIndex: 50,
+              }}
             >
-              {/* We use a transparent sibling trick: render a hidden mirror of the
-                  existing text, then append the ghost span. For simplicity we show
-                  a floating pill near the bottom of the editor as a suggestion hint. */}
-              <div
+              <span
                 style={{
-                  position: 'absolute',
-                  bottom: '4px',
-                  left: '0px',
-                  right: '0px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '2px 4px',
-                  pointerEvents: 'none',
+                  fontFamily,
+                  fontSize: '11px',
+                  color: 'rgba(124,58,237,0.85)',
+                  background: 'rgba(237,233,254,0.95)',
+                  border: '1px solid rgba(124,58,237,0.3)',
+                  borderRadius: '4px',
+                  padding: '2px 8px',
+                  letterSpacing: '0.02em',
+                  userSelect: 'none',
+                  backdropFilter: 'blur(4px)',
+                  whiteSpace: 'nowrap',
+                  fontWeight: 600,
+                  boxShadow: '0 2px 4px rgba(124,58,237,0.1)'
                 }}
               >
-                <span
-                  style={{
-                    fontFamily,
-                    fontSize: `${fontSize}pt`,
-                    color: 'rgba(124,58,237,0.55)',
-                    background: 'rgba(237,233,254,0.75)',
-                    border: '1px solid rgba(124,58,237,0.25)',
-                    borderRadius: '4px',
-                    padding: '1px 6px',
-                    letterSpacing: '0.01em',
-                    userSelect: 'none',
-                    backdropFilter: 'blur(4px)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {dialectSuggestion}
-                  <span style={{ fontSize: '9px', marginLeft: '6px', opacity: 0.7, color: '#7C3AED' }}>Tab</span>
-                </span>
-              </div>
+                {dialectSuggestion}
+                <span style={{ fontSize: '9px', marginLeft: '6px', opacity: 0.6, color: '#7C3AED', fontWeight: 'bold' }}>TAB</span>
+              </span>
             </div>
           )}
         </div>
